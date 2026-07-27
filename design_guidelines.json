@@ -1,0 +1,121 @@
+{
+  "project_name": "Café Komorebi — Table Reservation System",
+  "theme_strategy": "Light Theme Priority (Archetype 1: Organic & Earthy). Emphasizing 'Komorebi' (sunlight filtering through trees) with soft natural tones, airy whitespace, and a calm, premium experience.",
+  "typography": {
+    "heading_font": "Cormorant Garamond",
+    "body_font": "Manrope",
+    "scale_rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "h4": "text-lg sm:text-xl",
+      "body": "text-base leading-relaxed text-stone-600",
+      "labels": "text-xs tracking-[0.2em] uppercase font-semibold text-stone-500"
+    },
+    "guidelines": "Use Light (font-light) for elegant, large headings. Use Manrope for high-legibility UI elements (booking forms, dashboard data). No generic sans for headings."
+  },
+  "colors": {
+    "background": {
+      "primary": "#F9F6F0",
+      "secondary": "#F2EFEB",
+      "surface": "#FFFFFF",
+      "glass": "bg-white/70 backdrop-blur-xl"
+    },
+    "text": {
+      "primary": "#2C2A28",
+      "secondary": "#5A5753",
+      "muted": "#8A8680"
+    },
+    "brand": {
+      "primary": "#5E7153",
+      "primary_hover": "#4A5D23",
+      "accent": "#CC7A5C",
+      "border": "#E6E2DA"
+    },
+    "dashboard": {
+      "success": "#5E7153",
+      "warning": "#D4A373",
+      "danger": "#B85C5C",
+      "info": "#6B8E9B"
+    },
+    "guidelines": "Avoid harsh #000000 or #FFFFFF without context. Use bone-white/sand for backgrounds to feel organic. Text should be deep charcoal. Borders should be subtle stone colors."
+  },
+  "layouts": {
+    "spacing": "Generous. Use p-8 to p-16 for containers. Containers with borders MUST have internal padding (p-6 or p-8) to prevent text collision.",
+    "customer_booking_flow": {
+      "mobile": "Single-column, mobile-first responsive. Full-width sticky CTA for booking.",
+      "desktop": "Richer multi-column layout. Split-screen: Left side features the 3D 'table map' or rich cafe imagery, Right side features a scrolling date/time picker and booking form (side-by-side).",
+      "alignment": "Left-align forms and dense content. Center-align hero text only if it improves visual balance."
+    },
+    "admin_dashboard": {
+      "grid": "High Density Grid (Mode B). grid-cols-1 md:grid-cols-3 lg:grid-cols-4 with gap-6.",
+      "style": "Subtle roundness (max 8px border-radius), flat rectangular cards with 1px border (#E6E2DA). Avoid excessive shadows."
+    }
+  },
+  "motion_and_3d": {
+    "philosophy": "Tasteful, lightweight, and performant. Never at the cost of load speed.",
+    "hero_image": "Subtle 3D-tilted effect using framer-motion (e.g., rotateX and rotateY mapped to mouse position) to give depth without heavy WebGL.",
+    "parallax": "Soft parallax on scroll for background elements to simulate 'sunlight filtering' depth.",
+    "table_map": "2.5D Isometric animated illustration using framer-motion or basic CSS 3D transforms. Interactive hover states on tables (glow or slight lift).",
+    "micro_interactions": "Smooth hover lifts (-translate-y-1) and soft shadows on cards. Entrance animations staggered for lists."
+  },
+  "components_and_surfaces": {
+    "headers": "Crystal Glass variant: bg-white/70 with backdrop-blur-xl, 1px delicate inner stroke (border-white/40). MUST have logo and clear navigation.",
+    "buttons": "Pill-shaped or soft-rounded (rounded-full or rounded-lg). Primary buttons use brand green (#5E7153) with clear hover states.",
+    "cards": "Neumorphism/Tactile variant: Match parent background, 1px subtle border (border-[#E6E2DA]), soft shadow on hover.",
+    "forms": "Use Shadcn customized components. Inputs should have subtle backgrounds (bg-stone-50) and focus rings (focus:ring-brand-primary).",
+    "shadcn_customizations": "Override default Vercel-look. Soften radii, use stone/sand grays instead of cool slates."
+  },
+  "images": {
+    "hero_komorebi": {
+      "url": "https://images.unsplash.com/photo-1774597997646-789e4e62a8a2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzJ8MHwxfHNlYXJjaHw0fHxzdW5saWdodCUyMGZpbHRlcmluZyUyMHRocm91Z2glMjB0cmVlcyUyMGNhZmUlMjBpbnRlcmlvcnxlbnwwfHx8fDE3ODUxMjU2MDd8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Wooden table by a large window overlooking trees. Use for Hero section or 3D tilt effect.",
+      "category": "Hero Background"
+    },
+    "elegant_coffee": {
+      "url": "https://images.unsplash.com/photo-1531752074002-abf991376d04?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwzfHxlbGVnYW50JTIwY29mZmVlJTIwYWVzdGhldGljJTIwbWluaW1hbGlzdHxlbnwwfHx8fDE3ODUxMjU2MDd8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Elegant coffee latte on a marble table with a magazine.",
+      "category": "Booking Split Screen or Features"
+    },
+    "zen_interior": {
+      "url": "https://images.unsplash.com/photo-1608060146923-7b8ab13e22bb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxqYXBhbmVzZSUyMHplbiUyMGNhZmUlMjBhcmNoaXRlY3R1cmV8ZW58MHx8fHwxNzg1MTI1NjA3fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Warm, zen Japanese cafe architecture with people sitting.",
+      "category": "Gallery or About section"
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure text meets APCA/WCAG standards. Use text-shadow over images. NO pure transparent backgrounds under text.",
+    "focus": "Clear focus states with higher contrast than default. focus:ring-2 focus:ring-[#5E7153]",
+    "motion": "Respect prefers-reduced-motion. Provide aria-hidden on decorative 3D elements."
+  },
+  "testing": {
+    "data_testid": "ALL interactive and key informational elements MUST include a data-testid attribute (e.g., data-testid='booking-submit-button')."
+  },
+  "instructions_to_main_agent": [
+    "Use standard JavaScript (.js/.jsx) for all components. Do NOT use .tsx or TypeScript.",
+    "Implement the 'Komorebi' vibe using the designated colors. It should feel like a high-end, calm nature retreat.",
+    "Use 'framer-motion' for the 3D-tilted hero image and 2.5D animated table map to ensure it's performant and lightweight. Avoid heavy WebGL unless absolutely necessary.",
+    "For the Customer Booking flow on desktop, build a side-by-side layout: left side shows the live table map or imagery, right side houses the date/time picker and form.",
+    "For the Admin Dashboard, use a dense 'Bento Grid' layout. Make sure it feels distinctly different from the customer-facing pages (more functional, slightly tighter spacing) but retains the brand colors.",
+    "Use 'lucide-react' for icons with strokeWidth={1.5} for elegance.",
+    "Use 'sonner' for toast notifications (e.g., booking confirmations, admin actions).",
+    "Ensure all Shadcn components (forms, dialogs, dropdowns) are stripped of their default 'Vercel' look and customized to match the Organic & Earthy theme.",
+    "Implement both the Customer routes and the Admin/Super Admin protected routes seamlessly.",
+    "NEVER use generic placeholder text or dummy image URLs. Only use the provided Unsplash URLs.",
+    "CRITICAL: Do not use complete transparent background in header, overlays, or dropdowns. Apply backdrop-blur and a semi-solid color.",
+    "Add 'data-testid' to every button, form input, and interactive element."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not converge toward generic 'AI slop' aesthetics. Use creative, distinctive frontends.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "You MUST NOT apply universal transitions (e.g., transition: all). Add transitions for specific interactive elements excluding transforms.",
+    "You MUST NOT center align the app container. Do not add `.App { text-align: center; }`.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER use AI assistant Emoji characters for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Prioritize using pre-existing components from src/components/ui when applicable."
+  ]
+}
