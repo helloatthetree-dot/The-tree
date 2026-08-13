@@ -343,3 +343,148 @@ class TestOwner:
         assert r.status_code == 200
         d = r.json()
         assert "total_reservations" in d and "revenue" in d
+
+
+# --- New Features: avatars, menu, table photos, upload ---
+import io
+
+def _tiny_png_bytes():
+    # 1x1 transparent PNG
+    import base64
+    return base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+    )
+
+
+class TestAvatarInAuth:
+    def test_me_has_picture_field(self, guest_token):
+        r = requests.get(f"{API}/auth/me", headers=H(guest_token))
+        assert r.status_code == 200
+        d = r.json()
+        assert "picture" in d  # may be None/empty for non-Google users
+        assert "name" in d and d["name"]
+
+    def test_login_response_has_picture(self):
+        r = requests.post(f"{API}/auth/login", json={"email": "guest@komorebi.cafe", "password": "Guest@123"})
+        assert r.status_code == 200
+        d = r.json()
+        assert "user" in d and "picture" in d["user"]
+
+
+class TestPublicTables:
+    def test_public_tables_no_auth(self):
+        r = requests.get(f"{API}/tables/public")
+        assert r.status_code == 200
+        rows = r.json()
+        assert isinstance(rows, list) and len(rows) >= 8
+        for t in rows:
+            for k in ("id", "name", "zone", "capacity", "image_url"):
+                assert k in t
+
+
+class TestMenu:
+    def test_public_menu(self):
+        r = requests.get(f"{API}/menu")
+        assert r.status_code == 200
+        d = r.json()
+        assert "enabled" in d and "items" in d
+        assert isinstance(d["items"], list)
+        assert len(d["items"]) >= 6  # 6 seeded
+        item = d["items"][0]
+        for k in ("id", "name", "price"):
+            assert k in item
+
+    def test_admin_menu_list(self, admin_token):
+        r = requests.get(f"{API}/admin/menu", headers=H(admin_token))
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_customer_forbidden_admin_menu(self, guest_token):
+        r = requests.get(f"{API}/admin/menu", headers=H(guest_token))
+        assert r.status_code == 403
+
+    def test_admin_cannot_write_menu(self, admin_token):
+        # Admin (non-owner) must be 403 on write
+        r = requests.post(f"{API}/admin/menu", headers=H(admin_token),
+                          json={"name": "TEST_forbidden", "price": 100})
+        assert r.status_code == 403
+
+    def test_owner_menu_crud(self, owner_token):
+        # CREATE
+        create = requests.post(f"{API}/admin/menu", headers=H(owner_token), json={
+            "name": "TEST_Latte", "description": "test desc", "price": 250,
+            "category": "Drinks", "image_url": "", "active": True
+        })
+        assert create.status_code == 200, create.text
+        item = create.json()
+        assert item["name"] == "TEST_Latte" and item["price"] == 250
+        assert "id" in item
+        mid = item["id"]
+
+        # LIST includes it
+        lst = requests.get(f"{API}/admin/menu", headers=H(owner_token)).json()
+        assert any(i["id"] == mid for i in lst)
+
+        # UPDATE
+        upd = requests.put(f"{API}/admin/menu/{mid}", headers=H(owner_token), json={
+            "name": "TEST_Latte_Upd", "description": "x", "price": 300,
+            "category": "Drinks", "image_url": "", "active": True
+        })
+        assert upd.status_code == 200
+        assert upd.json()["price"] == 300 and upd.json()["name"] == "TEST_Latte_Upd"
+
+        # Public menu sees it (active=true)
+        pub = requests.get(f"{API}/menu").json()
+        assert any(i["id"] == mid for i in pub["items"])
+
+        # DELETE
+        d = requests.delete(f"{API}/admin/menu/{mid}", headers=H(owner_token))
+        assert d.status_code == 200
+
+
+class TestMenuToggle:
+    def test_toggle_menu_enabled(self, owner_token):
+        try:
+            # disable
+            r = requests.put(f"{API}/admin/settings", headers=H(owner_token), json={"menu_enabled": False})
+            assert r.status_code == 200
+            pub = requests.get(f"{API}/menu").json()
+            assert pub["enabled"] is False
+            pubs = requests.get(f"{API}/settings/public").json()
+            assert pubs["menu_enabled"] is False
+        finally:
+            # re-enable no matter what
+            r2 = requests.put(f"{API}/admin/settings", headers=H(owner_token), json={"menu_enabled": True})
+            assert r2.status_code == 200
+        pub2 = requests.get(f"{API}/menu").json()
+        assert pub2["enabled"] is True
+
+
+class TestGenericUpload:
+    def test_admin_forbidden_on_upload(self, admin_token):
+        files = {"file": ("t.png", _tiny_png_bytes(), "image/png")}
+        r = requests.post(f"{API}/admin/upload?kind=table", headers=H(admin_token), files=files)
+        assert r.status_code == 403
+
+    def test_owner_upload_and_fetch(self, owner_token):
+        files = {"file": ("t.png", _tiny_png_bytes(), "image/png")}
+        r = requests.post(f"{API}/admin/upload?kind=table", headers=H(owner_token), files=files)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert "url" in d and "path" in d
+        assert d["url"].startswith("/api/files/")
+        # fetch
+        f = requests.get(f"{BASE_URL}{d['url']}")
+        assert f.status_code == 200
+        assert f.headers.get("content-type", "").startswith("image/")
+
+    def test_table_without_image(self, owner_token):
+        # ensure optional image_url still permits creation
+        r = requests.post(f"{API}/tables", headers=H(owner_token),
+                          json={"name": "TEST_no_img", "capacity": 2, "zone": "indoor", "active": True})
+        assert r.status_code == 200, r.text
+        tid = r.json()["id"]
+        assert r.json().get("image_url", "") in ("", None)
+        # cleanup
+        requests.delete(f"{API}/tables/{tid}", headers=H(owner_token))
+

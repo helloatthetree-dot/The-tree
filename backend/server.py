@@ -125,6 +125,7 @@ async def get_current_user(request: Request) -> dict:
         user["id"] = str(user["_id"])
         user.pop("_id", None)
         user.pop("password_hash", None)
+        user.setdefault("picture", "")
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -163,6 +164,15 @@ class TableInput(BaseModel):
     zone: Literal["indoor", "outdoor"] = "indoor"
     active: bool = True
     notes: Optional[str] = ""
+    image_url: Optional[str] = ""
+
+class MenuItemInput(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    price: int
+    category: Optional[str] = "Mains"
+    image_url: Optional[str] = ""
+    active: bool = True
 
 class ReservationInput(BaseModel):
     booking_name: str
@@ -201,6 +211,7 @@ class SettingsInput(BaseModel):
     group_threshold: Optional[int] = None
     hold_minutes: Optional[int] = None
     special_needs_approval: Optional[bool] = None
+    menu_enabled: Optional[bool] = None
 
 class UserRoleInput(BaseModel):
     role: Literal["customer", "admin", "super_admin"]
@@ -238,15 +249,14 @@ def _to_hhmm(mins: int) -> str:
     return f"{mins // 60:02d}:{mins % 60:02d}"
 
 async def get_settings() -> dict:
+    defaults = {"fee_per_person": 300, "refund_percent": 50, "group_threshold": 6,
+                "hold_minutes": 90, "special_needs_approval": True, "menu_enabled": True}
     s = await db.settings.find_one({"_id": "global"})
     if not s:
-        s = {
-            "_id": "global", "fee_per_person": 300, "refund_percent": 50,
-            "group_threshold": 6, "hold_minutes": 90, "special_needs_approval": True,
-        }
+        s = {"_id": "global", **defaults}
         await db.settings.insert_one(s)
     s.pop("_id", None)
-    return s
+    return {**defaults, **s}
 
 def generate_slots(d: date, hold_minutes: int) -> List[str]:
     windows = OPERATING_HOURS[d.weekday()]
@@ -348,7 +358,7 @@ async def register(body: RegisterInput):
     res = await db.users.insert_one(doc)
     uid = str(res.inserted_id)
     token = create_access_token(uid, email, "customer")
-    return {"access_token": token, "user": {"id": uid, "name": body.name, "email": email, "role": "customer", "phone": body.phone or ""}}
+    return {"access_token": token, "user": {"id": uid, "name": body.name, "email": email, "role": "customer", "phone": body.phone or "", "picture": ""}}
 
 @api_router.post("/auth/login")
 async def login(body: LoginInput):
@@ -358,7 +368,7 @@ async def login(body: LoginInput):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     uid = str(user["_id"])
     token = create_access_token(uid, email, user["role"])
-    return {"access_token": token, "user": {"id": uid, "name": user["name"], "email": email, "role": user["role"], "phone": user.get("phone", "")}}
+    return {"access_token": token, "user": {"id": uid, "name": user["name"], "email": email, "role": user["role"], "phone": user.get("phone", ""), "picture": user.get("picture", "")}}
 
 @api_router.post("/auth/google/session")
 async def google_session(body: GoogleSessionInput):
@@ -383,15 +393,16 @@ async def google_session(body: GoogleSessionInput):
                "password_hash": None, "role": role, "phone": "", "picture": data.get("picture", ""),
                "auth_provider": "google", "created_at": now_utc().isoformat()}
         res = await db.users.insert_one(doc)
-        uid, name = str(res.inserted_id), doc["name"]
+        uid, name, pic = str(res.inserted_id), doc["name"], doc["picture"]
     else:
         uid, role, name = str(user["_id"]), user["role"], user["name"]
+        pic = user.get("picture") or data.get("picture", "")
         if data.get("picture") and not user.get("picture"):
             await db.users.update_one({"_id": user["_id"]}, {"$set": {"picture": data["picture"]}})
 
     token = create_access_token(uid, email, role)
     return {"access_token": token, "user": {"id": uid, "name": name, "email": email, "role": role,
-                                            "phone": (user.get("phone", "") if user else "")}}
+                                            "phone": (user.get("phone", "") if user else ""), "picture": pic}}
 
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
@@ -403,7 +414,8 @@ async def me(user: dict = Depends(get_current_user)):
 @api_router.get("/settings/public")
 async def public_settings():
     s = await get_settings()
-    return {"fee_per_person": s["fee_per_person"], "refund_percent": s["refund_percent"], "group_threshold": s["group_threshold"]}
+    return {"fee_per_person": s["fee_per_person"], "refund_percent": s["refund_percent"],
+            "group_threshold": s["group_threshold"], "menu_enabled": s["menu_enabled"]}
 
 @api_router.get("/booking-window")
 async def booking_window():
@@ -798,10 +810,70 @@ async def delete_gallery(gid: str, user: dict = Depends(require_owner)):
 async def serve_file(path: str):
     record = await db.gallery.find_one({"storage_path": path, "is_deleted": False})
     if not record:
+        record = await db.media.find_one({"storage_path": path})
+    if not record:
         raise HTTPException(status_code=404, detail="File not found")
     data, content_type = get_object(path)
     return Response(content=data, media_type=record.get("content_type", content_type),
                     headers={"Cache-Control": "public, max-age=86400"})
+
+def _validate_image(filename: str) -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
+    if ext not in MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Only image files (jpg, png, gif, webp) are allowed")
+    return ext
+
+@api_router.post("/admin/upload")
+async def admin_upload(file: UploadFile = File(...), kind: str = Query("misc"), user: dict = Depends(require_owner)):
+    ext = _validate_image(file.filename)
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be under 8MB")
+    path = f"{APP_NAME}/{kind}/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, MIME_TYPES[ext])
+    await db.media.insert_one({"storage_path": result["path"], "content_type": MIME_TYPES[ext],
+                               "kind": kind, "created_at": now_utc().isoformat()})
+    return {"url": f"/api/files/{result['path']}", "path": result["path"]}
+
+# ---------------------------------------------------------------------------
+# Public tables (for "our tables" showcase)
+# ---------------------------------------------------------------------------
+@api_router.get("/tables/public")
+async def public_tables():
+    rows = await db.tables.find({"active": True}).sort("capacity", 1).to_list(500)
+    return [{"id": str(t["_id"]), "name": t["name"], "zone": t["zone"], "capacity": t["capacity"],
+             "image_url": t.get("image_url", ""), "notes": t.get("notes", "")} for t in rows]
+
+# ---------------------------------------------------------------------------
+# Menu
+# ---------------------------------------------------------------------------
+@api_router.get("/menu")
+async def get_menu():
+    s = await get_settings()
+    items = await db.menu_items.find({"active": True}).sort("created_at", 1).to_list(300)
+    return {"enabled": s.get("menu_enabled", True), "items": [clean_reservation(i) for i in items]}
+
+@api_router.get("/admin/menu")
+async def admin_menu(user: dict = Depends(require_staff)):
+    items = await db.menu_items.find().sort("created_at", 1).to_list(300)
+    return [clean_reservation(i) for i in items]
+
+@api_router.post("/admin/menu")
+async def create_menu(body: MenuItemInput, user: dict = Depends(require_owner)):
+    doc = body.model_dump()
+    doc["created_at"] = now_utc().isoformat()
+    res = await db.menu_items.insert_one(doc)
+    return clean_reservation(await db.menu_items.find_one({"_id": res.inserted_id}))
+
+@api_router.put("/admin/menu/{mid}")
+async def update_menu(mid: str, body: MenuItemInput, user: dict = Depends(require_owner)):
+    await db.menu_items.update_one({"_id": ObjectId(mid)}, {"$set": body.model_dump()})
+    return clean_reservation(await db.menu_items.find_one({"_id": ObjectId(mid)}))
+
+@api_router.delete("/admin/menu/{mid}")
+async def delete_menu(mid: str, user: dict = Depends(require_owner)):
+    await db.menu_items.delete_one({"_id": ObjectId(mid)})
+    return {"ok": True}
 
 # ---------------------------------------------------------------------------
 # Startup seeding
@@ -850,6 +922,20 @@ async def startup():
         for t in seed_tables:
             t["created_at"] = now_utc().isoformat()
         await db.tables.insert_many(seed_tables)
+
+    # seed menu
+    if await db.menu_items.count_documents({}) == 0:
+        seed_menu = [
+            {"name": "Komorebi Pour-Over", "description": "Single-origin beans, brewed slow over filtered light.", "price": 320, "category": "Coffee", "image_url": "", "active": True},
+            {"name": "Matcha Cloud Latte", "description": "Ceremonial matcha, oat milk, a whisper of cane sugar.", "price": 340, "category": "Coffee", "image_url": "", "active": True},
+            {"name": "Yuzu Cheesecake", "description": "Baked cheesecake with bright yuzu and a sesame crust.", "price": 380, "category": "Dessert", "image_url": "", "active": True},
+            {"name": "Garden Soba Bowl", "description": "Chilled soba, seasonal greens, sesame-ginger dressing.", "price": 460, "category": "Mains", "image_url": "", "active": True},
+            {"name": "Maple Miso Toast", "description": "Sourdough, miso butter, maple, toasted walnuts.", "price": 290, "category": "Small Plates", "image_url": "", "active": True},
+            {"name": "Hojicha Affogato", "description": "Roasted-tea ice cream drowned in warm espresso.", "price": 300, "category": "Dessert", "image_url": "", "active": True},
+        ]
+        for m in seed_menu:
+            m["created_at"] = now_utc().isoformat()
+        await db.menu_items.insert_many(seed_menu)
     logger.info("Startup seeding complete")
 
 app.include_router(api_router)

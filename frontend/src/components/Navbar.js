@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Coffee, Menu, X, LogOut, LayoutDashboard, CalendarHeart, User } from "lucide-react";
+import { Avatar } from "./Avatar";
 
 export default function Navbar() {
   const { user, isStaff, logout } = useAuth();
@@ -66,6 +67,7 @@ export default function Navbar() {
               >
                 <CalendarHeart size={16} strokeWidth={1.5} /> My Bookings
               </Link>
+              <Avatar user={user} size={34} />
               <button
                 onClick={handleLogout}
                 data-testid="nav-logout"

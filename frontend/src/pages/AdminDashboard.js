@@ -15,8 +15,9 @@ import {
 } from "recharts";
 import {
   CalendarDays, Clock3, Users, ListChecks, PartyPopper, Armchair, Ban, BarChart3,
-  UserCog, CalendarOff, Settings2, Check, X, Trash2, Plus, IndianRupee, Loader2, ImagePlus,
+  UserCog, CalendarOff, Settings2, Check, X, Trash2, Plus, IndianRupee, Loader2, ImagePlus, UtensilsCrossed,
 } from "lucide-react";
+import { ImageUpload, resolveImg } from "../components/ImageUpload";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
@@ -272,6 +273,7 @@ export default function AdminDashboard() {
           {isOwner && (
             <TabsContent value="settings" className="mt-6 space-y-6">
               <SettingsManager settings={settings} onSaved={setSettings} />
+              <MenuManager />
               <GalleryManager />
               <HolidaysManager holidays={holidays} reload={() => api.get("/holidays").then((r) => setHolidays(r.data))} />
               <UsersManager users={users} me={user} reload={() => api.get("/admin/users").then((r) => setUsers(r.data))} />
@@ -313,7 +315,7 @@ export default function AdminDashboard() {
 
 /* ---------- Tables Manager ---------- */
 function TablesManager({ tables, isOwner, reload }) {
-  const empty = { name: "", capacity: 2, zone: "indoor", active: true, notes: "" };
+  const empty = { name: "", capacity: 2, zone: "indoor", active: true, notes: "", image_url: "" };
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
@@ -349,6 +351,7 @@ function TablesManager({ tables, isOwner, reload }) {
                   </Select>
                 </div>
                 <input placeholder="Notes (optional)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+                <ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} kind="table" label="Table photo" testid="table-image-upload" />
                 <label className="flex items-center gap-2 text-sm"><Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} /> Active</label>
               </div>
               <DialogFooter><button data-testid="save-table-btn" onClick={save} className="rounded-full bg-komorebi-green text-white px-6 py-2.5">Save table</button></DialogFooter>
@@ -358,14 +361,17 @@ function TablesManager({ tables, isOwner, reload }) {
       </div>
       <div className="grid md:grid-cols-2 gap-3">
         {tables.map((t) => (
-          <div key={t.id} className="rounded-xl bg-komorebi-bg hairline p-4 flex justify-between items-center">
-            <div>
-              <p className="font-semibold text-komorebi-ink">{t.name} <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${t.active ? "bg-komorebi-green/10 text-komorebi-green" : "bg-komorebi-muted/15 text-komorebi-muted"}`}>{t.active ? "Active" : "Inactive"}</span></p>
-              <p className="text-sm text-komorebi-muted mt-1">{t.capacity} seats · {t.zone}{t.notes ? ` · ${t.notes}` : ""}</p>
+          <div key={t.id} className="rounded-xl bg-komorebi-bg hairline p-4 flex justify-between items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              {t.image_url && <img src={resolveImg(t.image_url)} alt="" className="h-12 w-12 rounded-lg object-cover hairline shrink-0" />}
+              <div className="min-w-0">
+                <p className="font-semibold text-komorebi-ink truncate">{t.name} <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${t.active ? "bg-komorebi-green/10 text-komorebi-green" : "bg-komorebi-muted/15 text-komorebi-muted"}`}>{t.active ? "Active" : "Inactive"}</span></p>
+                <p className="text-sm text-komorebi-muted mt-1 truncate">{t.capacity} seats · {t.zone}{t.notes ? ` · ${t.notes}` : ""}</p>
+              </div>
             </div>
             {isOwner && (
               <div className="flex gap-2">
-                <button onClick={() => { setForm({ name: t.name, capacity: t.capacity, zone: t.zone, active: t.active, notes: t.notes || "" }); setEditing(t.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
+                <button onClick={() => { setForm({ name: t.name, capacity: t.capacity, zone: t.zone, active: t.active, notes: t.notes || "", image_url: t.image_url || "" }); setEditing(t.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
                 <button onClick={() => del(t.id)} className="rounded-full hairline bg-white text-komorebi-danger px-3 py-1.5"><Trash2 size={15} /></button>
               </div>
             )}
@@ -431,7 +437,7 @@ function SettingsManager({ settings, onSaved }) {
       const { data } = await api.put("/admin/settings", {
         fee_per_person: Number(f.fee_per_person), refund_percent: Number(f.refund_percent),
         group_threshold: Number(f.group_threshold), hold_minutes: Number(f.hold_minutes),
-        special_needs_approval: f.special_needs_approval,
+        special_needs_approval: f.special_needs_approval, menu_enabled: f.menu_enabled,
       });
       onSaved(data); toast.success("Settings saved");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -456,6 +462,10 @@ function SettingsManager({ settings, onSaved }) {
         <label className="flex items-center gap-3 mt-6">
           <Switch data-testid="setting-occasion-approval" checked={f.special_needs_approval} onCheckedChange={(v) => setF({ ...f, special_needs_approval: v })} />
           <span className="text-sm text-komorebi-ink2">Special occasions need approval</span>
+        </label>
+        <label className="flex items-center gap-3 mt-6">
+          <Switch data-testid="setting-menu-enabled" checked={f.menu_enabled} onCheckedChange={(v) => setF({ ...f, menu_enabled: v })} />
+          <span className="text-sm text-komorebi-ink2">Show menu on homepage</span>
         </label>
       </div>
       <button data-testid="save-settings-btn" onClick={save} className="mt-6 rounded-full bg-komorebi-green text-white px-6 py-2.5">Save settings</button>
@@ -545,6 +555,80 @@ function GalleryManager() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------- Menu Manager ---------- */
+function MenuManager() {
+  const empty = { name: "", description: "", price: 300, category: "Mains", image_url: "", active: true };
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState(empty);
+  const [editing, setEditing] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  const load = () => api.get("/admin/menu").then((r) => setItems(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    try {
+      const payload = { ...form, price: Number(form.price) };
+      if (editing) await api.put(`/admin/menu/${editing}`, payload);
+      else await api.post("/admin/menu", payload);
+      toast.success("Menu item saved");
+      setOpen(false); setForm(empty); setEditing(null); load();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const del = async (id) => { try { await api.delete(`/admin/menu/${id}`); toast.success("Item removed"); load(); } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); } };
+
+  return (
+    <div className="rounded-2xl bg-white hairline p-6">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-display text-2xl flex items-center gap-2"><UtensilsCrossed size={22} className="text-komorebi-green" /> Menu showcase</h3>
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setForm(empty); setEditing(null); } }}>
+          <DialogTrigger asChild>
+            <button data-testid="add-menu-btn" className="rounded-full bg-komorebi-green text-white px-4 py-2 text-sm flex items-center gap-1"><Plus size={15} /> Add item</button>
+          </DialogTrigger>
+          <DialogContent className="rounded-3xl">
+            <DialogHeader><DialogTitle className="font-display text-2xl">{editing ? "Edit item" : "New menu item"}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <input data-testid="menu-name" placeholder="Dish name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+              <textarea data-testid="menu-description" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none min-h-[70px]" />
+              <div className="flex gap-3">
+                <input data-testid="menu-price" type="number" min="0" placeholder="Price ₹" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="w-1/2 rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+                <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                  <SelectTrigger data-testid="menu-category" className="w-1/2 rounded-xl bg-komorebi-bg py-6"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Coffee", "Small Plates", "Mains", "Dessert", "Drinks"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} kind="menu" label="Dish photo" testid="menu-image-upload" />
+              <label className="flex items-center gap-2 text-sm"><Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} /> Visible</label>
+            </div>
+            <DialogFooter><button data-testid="save-menu-btn" onClick={save} className="rounded-full bg-komorebi-green text-white px-6 py-2.5">Save item</button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <p className="text-sm text-komorebi-muted mb-4">Toggle the whole menu section on the homepage from Reservation rules above. Photos are optional.</p>
+      <div className="grid md:grid-cols-2 gap-3">
+        {items.length === 0 ? <p className="text-komorebi-muted text-sm">No menu items yet.</p> :
+          items.map((m) => (
+            <div key={m.id} className="rounded-xl bg-komorebi-bg hairline p-3 flex items-center gap-3">
+              {m.image_url
+                ? <img src={resolveImg(m.image_url)} alt="" className="h-12 w-12 rounded-lg object-cover hairline shrink-0" />
+                : <span className="h-12 w-12 rounded-lg bg-komorebi-green/10 grid place-items-center shrink-0"><UtensilsCrossed size={18} className="text-komorebi-green/60" /></span>}
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-komorebi-ink truncate">{m.name} <span className="text-komorebi-green text-sm">₹{m.price}</span>{!m.active && <span className="ml-1 text-xs text-komorebi-muted">(hidden)</span>}</p>
+                <p className="text-xs text-komorebi-muted truncate">{m.category}{m.description ? ` · ${m.description}` : ""}</p>
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={() => { setForm({ name: m.name, description: m.description || "", price: m.price, category: m.category || "Mains", image_url: m.image_url || "", active: m.active }); setEditing(m.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
+                <button onClick={() => del(m.id)} className="rounded-full hairline bg-white text-komorebi-danger px-3 py-1.5"><Trash2 size={15} /></button>
+              </div>
+            </div>
+          ))}
+      </div>
     </div>
   );
 }

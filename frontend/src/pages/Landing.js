@@ -84,10 +84,14 @@ export default function Landing() {
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, -60]);
   const [gallery, setGallery] = useState([]);
+  const [menu, setMenu] = useState({ enabled: true, items: [] });
+  const [publicTables, setPublicTables] = useState([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     api.get("/gallery").then((r) => setGallery(r.data)).catch(() => {});
+    api.get("/menu").then((r) => setMenu(r.data)).catch(() => {});
+    api.get("/tables/public").then((r) => setPublicTables(r.data)).catch(() => {});
   }, []);
 
   const galleryImg = (idx, fallback) =>
@@ -178,6 +182,68 @@ export default function Landing() {
         </div>
         <TableMap />
       </section>
+
+      {/* Our tables */}
+      {publicTables.length > 0 && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 py-16">
+          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Where you'll sit</p>
+          <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Our tables</h2>
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-5">
+            {publicTables.map((t, i) => (
+              <motion.div
+                key={t.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                transition={{ delay: (i % 4) * 0.08, duration: 0.6 }}
+                className="rounded-2xl bg-white hairline overflow-hidden lift"
+              >
+                {t.image_url ? (
+                  <img src={t.image_url.startsWith("http") ? t.image_url : `${BACKEND}${t.image_url}`} alt={t.name} className="w-full h-40 object-cover" />
+                ) : (
+                  <div className={`w-full h-40 grid place-items-center ${t.zone === "outdoor" ? "bg-gradient-to-br from-komorebi-clay/20 to-komorebi-green/10" : "bg-gradient-to-br from-komorebi-green/15 to-komorebi-bg2"}`}>
+                    <span className="font-display text-2xl text-komorebi-green/50">{t.zone === "outdoor" ? "Garden" : "Indoor"}</span>
+                  </div>
+                )}
+                <div className="p-4">
+                  <p className="font-display text-xl text-komorebi-ink">{t.name}</p>
+                  <p className="text-sm text-komorebi-muted mt-0.5">{t.capacity} seats · {t.zone}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Menu showcase */}
+      {menu.enabled && menu.items.length > 0 && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 py-16">
+          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Taste</p>
+          <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">From our kitchen</h2>
+          <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {menu.items.map((m, i) => (
+              <motion.div
+                key={m.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                transition={{ delay: (i % 3) * 0.08, duration: 0.6 }}
+                className="rounded-2xl bg-white hairline overflow-hidden lift"
+              >
+                {m.image_url ? (
+                  <img src={m.image_url.startsWith("http") ? m.image_url : `${BACKEND}${m.image_url}`} alt={m.name} className="w-full h-44 object-cover" />
+                ) : (
+                  <div className="w-full h-44 bg-gradient-to-br from-komorebi-green/12 to-komorebi-clay/12 grid place-items-center">
+                    <span className="font-display text-3xl text-komorebi-green/40">木漏れ日</span>
+                  </div>
+                )}
+                <div className="p-5">
+                  <div className="flex justify-between items-start gap-3">
+                    <h3 className="font-display text-2xl text-komorebi-ink leading-tight">{m.name}</h3>
+                    <span className="text-komorebi-green font-semibold whitespace-nowrap">₹{m.price}</span>
+                  </div>
+                  {m.category && <span className="text-[11px] uppercase tracking-wide text-komorebi-muted">{m.category}</span>}
+                  {m.description && <p className="text-sm text-komorebi-ink2 mt-2 leading-relaxed">{m.description}</p>}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Gallery */}
       <section className="max-w-7xl mx-auto px-5 md:px-8 pb-24 grid md:grid-cols-2 gap-5">

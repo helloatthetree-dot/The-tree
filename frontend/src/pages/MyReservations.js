@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import api, { formatApiError } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import { Avatar } from "../components/Avatar";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -25,6 +27,7 @@ function fmt12(t) {
 }
 
 export default function MyReservations() {
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [waitlist, setWaitlist] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +53,13 @@ export default function MyReservations() {
     <div className="komorebi-grain min-h-[calc(100vh-4rem)]">
       <div className="max-w-5xl mx-auto px-5 md:px-8 py-12">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Your visits</p>
-            <h1 className="font-display text-4xl md:text-5xl mt-2 text-komorebi-ink">My reservations</h1>
+          <div className="flex items-center gap-4">
+            <Avatar user={user} size={56} />
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Your visits</p>
+              <h1 className="font-display text-4xl md:text-5xl mt-1 text-komorebi-ink">My reservations</h1>
+              <p className="text-sm text-komorebi-muted mt-1">{user?.name}</p>
+            </div>
           </div>
           <Link to="/book" data-testid="new-booking-btn" className="inline-flex items-center gap-2 rounded-full bg-komorebi-green text-white px-6 py-3 text-sm hover:bg-komorebi-greenDark transition-colors">
             New reservation <ArrowRight size={16} strokeWidth={1.5} />
