@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import api, { formatApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -15,8 +15,10 @@ import {
 } from "recharts";
 import {
   CalendarDays, Clock3, Users, ListChecks, PartyPopper, Armchair, Ban, BarChart3,
-  UserCog, CalendarOff, Settings2, Check, X, Trash2, Plus, IndianRupee, Loader2,
+  UserCog, CalendarOff, Settings2, Check, X, Trash2, Plus, IndianRupee, Loader2, ImagePlus,
 } from "lucide-react";
+
+const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
 const CHART = ["#5E7153", "#CC7A5C", "#D4A373", "#6B8E9B", "#B85C5C", "#8A8680"];
 const OCCASIONS = ["None", "Birthday", "Anniversary", "Date Night", "Family Gathering", "Business Meeting", "Celebration", "Other"];
@@ -270,6 +272,7 @@ export default function AdminDashboard() {
           {isOwner && (
             <TabsContent value="settings" className="mt-6 space-y-6">
               <SettingsManager settings={settings} onSaved={setSettings} />
+              <GalleryManager />
               <HolidaysManager holidays={holidays} reload={() => api.get("/holidays").then((r) => setHolidays(r.data))} />
               <UsersManager users={users} me={user} reload={() => api.get("/admin/users").then((r) => setUsers(r.data))} />
               {analytics && (
@@ -485,7 +488,67 @@ function HolidaysManager({ holidays, reload }) {
   );
 }
 
-/* ---------- Users Manager ---------- */
+/* ---------- Gallery Manager ---------- */
+function GalleryManager() {
+  const [images, setImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef(null);
+
+  const load = () => api.get("/gallery").then((r) => setImages(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const upload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      await api.post("/admin/gallery", fd, { params: { caption: file.name, slot: "gallery" } });
+      toast.success("Image uploaded to gallery");
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const remove = async (id) => {
+    try { await api.delete(`/admin/gallery/${id}`); toast.success("Image removed"); load(); }
+    catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+
+  return (
+    <div className="rounded-2xl bg-white hairline p-6">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="font-display text-2xl flex items-center gap-2"><ImagePlus size={22} className="text-komorebi-green" /> Café gallery</h3>
+        <label className="rounded-full bg-komorebi-green text-white px-4 py-2 text-sm flex items-center gap-1 cursor-pointer hover:bg-komorebi-greenDark">
+          {uploading ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Upload image
+          <input ref={inputRef} data-testid="gallery-upload-input" type="file" accept="image/*" className="hidden" onChange={upload} disabled={uploading} />
+        </label>
+      </div>
+      <p className="text-sm text-komorebi-muted mb-4">The first two images appear in the homepage gallery. JPG/PNG/WebP up to 8MB.</p>
+      {images.length === 0 ? (
+        <p className="text-komorebi-muted text-sm">No images yet — the homepage uses default café photos.</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {images.map((g, i) => (
+            <div key={g.id} data-testid={`gallery-img-${g.id}`} className="relative rounded-xl overflow-hidden hairline group">
+              <img src={`${BACKEND}${g.url}`} alt={g.caption} className="w-full h-32 object-cover" />
+              {i < 2 && <span className="absolute top-2 left-2 text-[10px] bg-komorebi-green text-white px-2 py-0.5 rounded-full">Homepage</span>}
+              <button onClick={() => remove(g.id)} data-testid={`gallery-delete-${g.id}`} className="absolute top-2 right-2 h-7 w-7 grid place-items-center rounded-full bg-white/90 text-komorebi-danger opacity-0 group-hover:opacity-100 transition-opacity">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsersManager({ users, me, reload }) {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "admin" });
   const [open, setOpen] = useState(false);

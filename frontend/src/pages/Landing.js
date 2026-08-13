@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Leaf, Clock, MapPin, ShieldCheck, ArrowRight, Sun } from "lucide-react";
+import api from "../lib/api";
+
+const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
 const HERO =
   "https://images.unsplash.com/photo-1774597997646-789e4e62a8a2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzJ8MHwxfHNlYXJjaHw0fHxzdW5saWdodCUyMGZpbHRlcmluZyUyMHRocm91Z2glMjB0cmVlcyUyMGNhZmUlMjBpbnRlcmlvcnxlbnwwfHx8fDE3ODUxMjU2MDd8MA&ixlib=rb-4.1.0&q=85";
@@ -80,10 +83,15 @@ function TableMap() {
 export default function Landing() {
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, -60]);
+  const [gallery, setGallery] = useState([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    api.get("/gallery").then((r) => setGallery(r.data)).catch(() => {});
   }, []);
+
+  const galleryImg = (idx, fallback) =>
+    gallery[idx] ? `${BACKEND}${gallery[idx].url}` : fallback;
 
   return (
     <div className="komorebi-grain">
@@ -175,13 +183,13 @@ export default function Landing() {
       <section className="max-w-7xl mx-auto px-5 md:px-8 pb-24 grid md:grid-cols-2 gap-5">
         <motion.img
           initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
-          src={COFFEE} alt="Elegant coffee" className="w-full h-72 md:h-96 object-cover rounded-3xl lift"
+          src={galleryImg(0, COFFEE)} alt="Elegant coffee" className="w-full h-72 md:h-96 object-cover rounded-3xl lift"
         />
         <motion.div
           initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7, delay: 0.1 }}
           className="relative rounded-3xl overflow-hidden lift"
         >
-          <img src={ZEN} alt="Zen interior" className="w-full h-72 md:h-96 object-cover" />
+          <img src={galleryImg(1, ZEN)} alt="Zen interior" className="w-full h-72 md:h-96 object-cover" />
           <div className="absolute inset-0 bg-komorebi-ink/35 grid place-items-center text-center p-8">
             <div>
               <h3 className="font-display text-3xl md:text-4xl text-white">Reserve your window seat</h3>

@@ -5,13 +5,16 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 import os
+import uuid
 import logging
 import jwt
 import bcrypt
+import requests
 from datetime import datetime, timezone, timedelta, date, time
 from typing import List, Optional, Annotated, Literal
 
-from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, UploadFile, File, Header, Query
+from fastapi.responses import Response
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, ConfigDict, BeforeValidator, EmailStr
@@ -45,6 +48,46 @@ PyObjectId = Annotated[str, BeforeValidator(_validate_object_id)]
 
 def now_utc():
     return datetime.now(timezone.utc)
+
+# ---------------------------------------------------------------------------
+# Object storage (Emergent-managed)
+# ---------------------------------------------------------------------------
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "komorebi"
+MIME_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+              "gif": "image/gif", "webp": "image/webp"}
+_storage_key = None
+
+def init_storage(force: bool = False):
+    global _storage_key
+    if _storage_key and not force:
+        return _storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(f"{STORAGE_URL}/objects/{path}",
+                        headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = requests.put(f"{STORAGE_URL}/objects/{path}",
+                            headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+def get_object(path: str):
+    key = init_storage()
+    resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
 
 # ---------------------------------------------------------------------------
 # Auth utils
@@ -685,10 +728,55 @@ async def analytics(user: dict = Depends(require_staff)):
     }
 
 # ---------------------------------------------------------------------------
+# Gallery / media (public read, owner-managed)
+# ---------------------------------------------------------------------------
+@api_router.get("/gallery")
+async def list_gallery():
+    rows = await db.gallery.find({"is_deleted": False}).sort("created_at", -1).to_list(100)
+    return [{"id": g["id"], "url": f"/api/files/{g['storage_path']}",
+             "caption": g.get("caption", ""), "slot": g.get("slot", "gallery")} for g in rows]
+
+@api_router.post("/admin/gallery")
+async def upload_gallery(file: UploadFile = File(...), caption: str = Query(""),
+                         slot: str = Query("gallery"), user: dict = Depends(require_owner)):
+    ext = (file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin")
+    if ext not in MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Only image files (jpg, png, gif, webp) are allowed")
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be under 8MB")
+    path = f"{APP_NAME}/gallery/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, MIME_TYPES[ext])
+    doc = {"id": str(uuid.uuid4()), "storage_path": result["path"], "original_filename": file.filename,
+           "content_type": MIME_TYPES[ext], "size": result.get("size", len(data)), "caption": caption,
+           "slot": slot, "is_deleted": False, "created_at": now_utc().isoformat()}
+    await db.gallery.insert_one(doc)
+    return {"id": doc["id"], "url": f"/api/files/{doc['storage_path']}", "caption": caption, "slot": slot}
+
+@api_router.delete("/admin/gallery/{gid}")
+async def delete_gallery(gid: str, user: dict = Depends(require_owner)):
+    await db.gallery.update_one({"id": gid}, {"$set": {"is_deleted": True}})
+    return {"ok": True}
+
+@api_router.get("/files/{path:path}")
+async def serve_file(path: str):
+    record = await db.gallery.find_one({"storage_path": path, "is_deleted": False})
+    if not record:
+        raise HTTPException(status_code=404, detail="File not found")
+    data, content_type = get_object(path)
+    return Response(content=data, media_type=record.get("content_type", content_type),
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+# ---------------------------------------------------------------------------
 # Startup seeding
 # ---------------------------------------------------------------------------
 @app.on_event("startup")
 async def startup():
+    try:
+        init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error(f"Storage init failed: {e}")
     await db.users.create_index("email", unique=True)
     await get_settings()
 
