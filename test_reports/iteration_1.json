@@ -1,0 +1,41 @@
+{
+  "summary": "Comprehensive backend + frontend testing for Café Komorebi reservation system. Backend: 28/28 pytest tests pass (auth, availability, reservation flow with mock pay, special-occasion/large-group needs_approval, admin approve/reject, tables status, blocks affecting availability, holidays, owner-only settings/users/tables, analytics, waitlist, RBAC). Frontend: customer register/login, booking date/slot selection, policies-required error toast, pay -> on-screen confirmation, admin dashboard tabs (overview/pending/waitlist/reservations/tables/availability), owner exclusive settings tab with save-settings/add-staff/add-table all render; RBAC: admin does NOT see owner-only Settings tab.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/register", "issue": "Email is silently lowercased by server; documented behavior but test needed adjustment"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Booking confirmation dialog", "issues": ["Radix DialogContent missing DialogTitle / aria-describedby -> a11y console warnings on /book (confirmation modal). Wrap title in VisuallyHidden or add DialogTitle/Description."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Add DialogTitle + DialogDescription (or VisuallyHidden wrapper) to the payment confirmation Dialog on /book to remove Radix a11y warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py get_booking_window uses ref.date() with UTC — may cause off-by-one for users in IST when clock crosses midnight; consider a fixed 'cafe' timezone.",
+    "clean_reservation() is reused for tables/blocks/holidays/waitlist which just strips _id and adds id — misleading name; rename to _strip_id or similar for clarity.",
+    "generate_slots uses hold_minutes (default 90) as the required slot duration, meaning last valid slot on Tue-Fri evening is 20:30 (last table seat until 22:00). Confirm this matches product spec.",
+    "delete_user route allows deleting ANY user including seeded admin/owner; consider protecting seeded staff accounts.",
+    "No index on reservations.date/status which is queried often; consider adding compound indexes for scale.",
+    "CORS_ORIGINS is '*' with allow_credentials=True; browsers will reject credentialed requests with wildcard. Not currently used (JWT via header) but risky if cookie auth is added.",
+    "Availability endpoint is unauthenticated — could be abused for scraping; not critical for MVP."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100% (28/28)", "frontend": "100% of tested critical flows"},
+  "test_credentials": "owner@komorebi.cafe/Owner@123, admin@komorebi.cafe/Admin@123, guest@komorebi.cafe/Guest@123",
+  "seed_data_creation": "Test users with TEST_ prefix and TEST_Table were created and cleaned up in tests. Two live reservations (TEST Bday confirmed, Test Booker confirmed for today) remain in DB from playwright UI test — harmless demo data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "backend_test.py is a full pytest suite (junitxml at /app/test_reports/pytest/pytest_results.xml). Booking flow requires selecting a date within /api/booking-window range and a non-Monday day. Razorpay is fully mocked. Guest user's My Reservations may not show a Cancel button if the corresponding booking's status is not in the cancellable set; earlier iteration tests may have already cancelled them."
+}
