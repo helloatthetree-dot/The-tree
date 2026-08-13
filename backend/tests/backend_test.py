@@ -27,7 +27,24 @@ def _login(email, password):
 
 @pytest.fixture(scope="session")
 def owner_token():
-    return _login("owner@komorebi.cafe", "Owner@123")
+    return _login("sabnamrajoria@gmail.com", "Owner@123")
+
+
+# --- Google auth ---
+class TestGoogleAuth:
+    def test_google_session_invalid(self):
+        r = requests.post(f"{API}/auth/google/session", json={"session_id": "garbage-invalid-xyz-123"}, timeout=30)
+        assert r.status_code == 401
+        assert "invalid" in r.text.lower() or "expired" in r.text.lower()
+
+    def test_google_session_empty_body(self):
+        r = requests.post(f"{API}/auth/google/session", json={}, timeout=15)
+        assert r.status_code in (400, 422)
+
+    def test_google_session_empty_string(self):
+        # empty session_id should still fail 401 or 400
+        r = requests.post(f"{API}/auth/google/session", json={"session_id": ""}, timeout=30)
+        assert r.status_code in (400, 401, 422)
 
 @pytest.fixture(scope="session")
 def admin_token():

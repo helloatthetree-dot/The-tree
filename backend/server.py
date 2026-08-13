@@ -154,6 +154,9 @@ class LoginInput(BaseModel):
     email: EmailStr
     password: str
 
+class GoogleSessionInput(BaseModel):
+    session_id: str
+
 class TableInput(BaseModel):
     name: str
     capacity: int
@@ -356,6 +359,39 @@ async def login(body: LoginInput):
     uid = str(user["_id"])
     token = create_access_token(uid, email, user["role"])
     return {"access_token": token, "user": {"id": uid, "name": user["name"], "email": email, "role": user["role"], "phone": user.get("phone", "")}}
+
+@api_router.post("/auth/google/session")
+async def google_session(body: GoogleSessionInput):
+    """Exchange an Emergent Google session_id for the app's own JWT."""
+    try:
+        resp = requests.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": body.session_id}, timeout=30)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Auth service unavailable")
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired Google session")
+    data = resp.json()
+    email = (data.get("email") or "").lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Google account has no email")
+
+    user = await db.users.find_one({"email": email})
+    if not user:
+        role = "super_admin" if email == os.environ["SUPER_ADMIN_EMAIL"].lower() else "customer"
+        doc = {"name": data.get("name") or email.split("@")[0], "email": email,
+               "password_hash": None, "role": role, "phone": "", "picture": data.get("picture", ""),
+               "auth_provider": "google", "created_at": now_utc().isoformat()}
+        res = await db.users.insert_one(doc)
+        uid, name = str(res.inserted_id), doc["name"]
+    else:
+        uid, role, name = str(user["_id"]), user["role"], user["name"]
+        if data.get("picture") and not user.get("picture"):
+            await db.users.update_one({"_id": user["_id"]}, {"$set": {"picture": data["picture"]}})
+
+    token = create_access_token(uid, email, role)
+    return {"access_token": token, "user": {"id": uid, "name": name, "email": email, "role": role,
+                                            "phone": (user.get("phone", "") if user else "")}}
 
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):

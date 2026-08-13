@@ -8,6 +8,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Returning from Google OAuth: let AuthCallback handle the session exchange.
+    if (window.location.hash?.includes("session_id=")) {
+      setLoading(false);
+      return;
+    }
     const token = localStorage.getItem("komorebi_token");
     if (!token) {
       setLoading(false);
@@ -39,6 +44,12 @@ export function AuthProvider({ children }) {
     return res.data.user;
   };
 
+  const loginWithGoogle = async (sessionId) => {
+    const res = await api.post("/auth/google/session", { session_id: sessionId });
+    applyAuth(res.data);
+    return res.data.user;
+  };
+
   const logout = () => {
     localStorage.removeItem("komorebi_token");
     setUser(null);
@@ -48,7 +59,7 @@ export function AuthProvider({ children }) {
   const isOwner = user && user.role === "super_admin";
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isStaff, isOwner }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginWithGoogle, logout, isStaff, isOwner }}>
       {children}
     </AuthContext.Provider>
   );
