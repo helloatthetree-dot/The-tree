@@ -15,8 +15,16 @@
   --komorebi-border: #e6e2da;
 }
 
+html,
+body,
+#root {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
+  width: 100%;
   font-family: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--komorebi-bg);
   color: var(--komorebi-ink);

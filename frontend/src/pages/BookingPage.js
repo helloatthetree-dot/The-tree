@@ -115,7 +115,7 @@ export default function BookingPage() {
 
         <div className="mt-8 grid lg:grid-cols-[1.15fr_1fr] gap-8">
           {/* LEFT: date/time + availability */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {/* Party size */}
             <div className="rounded-2xl bg-white hairline p-6">
               <label className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Number of guests</label>

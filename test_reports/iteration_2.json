@@ -1,0 +1,22 @@
+{
+  "summary": "Verified mobile horizontal-scroll bug fix on Café Komorebi. Tested 6 pages (Landing, Login, Policies, Book, My Reservations, Admin) across 2 mobile viewports (390x844 iPhone, 360x800 Android) = 12 assertions. All pass: document.documentElement.scrollWidth == window.innerWidth on every page, and window.scrollTo(9999,0) leaves scrollX=0 (page cannot be scrolled horizontally). The intentional inner horizontal-scroll on the /book date strip is correctly contained (an inner div of width 1654px exists, but the body/root scrollWidth remains equal to viewport width, so the PAGE itself does not scroll). Both customer and admin logins worked. Fix in index.css/App.css (overflow-x:hidden; max-width:100% on html/body/#root/.App) is effective.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Using overflow-x:hidden on html/body/#root is a valid quick fix, but the underlying root-cause overflowing element on /book (a .space-y-6 wrapper measured at 1654px wide) still exists — currently it is only visually clipped. Consider wrapping that specific overflow-x-auto date strip so its intrinsic width no longer inflates the parent's scrollWidth (e.g., min-w-0 on flex/grid children, or overflow-x:hidden on the immediate parent), so the fix does not rely solely on the global clip."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only task)", "frontend": "100% (12/12 mobile overflow checks passed)"},
+  "test_credentials": "guest@komorebi.cafe / Guest@123 (customer), admin@komorebi.cafe / Admin@123 (admin) — both work",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login form testids: [data-testid=auth-email], [data-testid=auth-password], [data-testid=auth-submit]. JWT stored in localStorage as komorebi_token. Public pages: /, /login, /policies. Auth-required: /book, /reservations, /admin. Mobile overflow assertion pattern used: (a) scrollWidth<=innerWidth+1 and (b) window.scrollTo(9999,0) => scrollX stays 0. The /book page has an intentional inner horizontally-scrollable date strip; do not flag its inner element width as a page-overflow bug.",
+  "rca of the issue": "Original bug: on mobile the page could be swiped/scrolled horizontally because some inner element (the horizontally-scrollable date strip on the Book page, and possibly transformed hero image / grid on Landing) had an intrinsic width > viewport, propagating scrollWidth up to body. Fix applied globally: overflow-x:hidden + max-width:100% on html, body, #root, .App clips the overflow at the root and prevents horizontal scroll gestures on the whole page while still allowing the intended inner overflow-x:auto scrollers to work inside their own containers. Verified fix is effective across all tested pages and both mobile viewports."
+}
