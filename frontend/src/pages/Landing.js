@@ -94,8 +94,10 @@ export default function Landing() {
     api.get("/tables/public").then((r) => setPublicTables(r.data)).catch(() => {});
   }, []);
 
-  const galleryImg = (idx, fallback) =>
-    gallery[idx] ? `${BACKEND}${gallery[idx].url}` : fallback;
+  const bySlot = (slot, fallback) => {
+    const g = gallery.find((x) => x.slot === slot);
+    return g ? `${BACKEND}${g.url}` : fallback;
+  };
 
   return (
     <div className="komorebi-grain">
@@ -249,13 +251,13 @@ export default function Landing() {
       <section className="max-w-7xl mx-auto px-5 md:px-8 pb-24 grid md:grid-cols-2 gap-5">
         <motion.img
           initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
-          src={galleryImg(0, COFFEE)} alt="Elegant coffee" className="w-full h-72 md:h-96 object-cover rounded-3xl lift"
+          src={bySlot("gallery_1", COFFEE)} alt="Elegant coffee" className="w-full h-72 md:h-96 object-cover rounded-3xl lift"
         />
         <motion.div
           initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7, delay: 0.1 }}
           className="relative rounded-3xl overflow-hidden lift"
         >
-          <img src={galleryImg(1, ZEN)} alt="Zen interior" className="w-full h-72 md:h-96 object-cover" />
+          <img src={bySlot("gallery_2", ZEN)} alt="Zen interior" className="w-full h-72 md:h-96 object-cover" />
           <div className="absolute inset-0 bg-komorebi-ink/35 grid place-items-center text-center p-8">
             <div>
               <h3 className="font-display text-3xl md:text-4xl text-white">Reserve your window seat</h3>

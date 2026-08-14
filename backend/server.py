@@ -795,6 +795,8 @@ async def upload_gallery(file: UploadFile = File(...), caption: str = Query(""),
         raise HTTPException(status_code=400, detail="Image must be under 8MB")
     path = f"{APP_NAME}/gallery/{uuid.uuid4()}.{ext}"
     result = put_object(path, data, MIME_TYPES[ext])
+    if slot in ("hero", "gallery_1", "gallery_2"):
+        await db.gallery.update_many({"slot": slot, "is_deleted": False}, {"$set": {"is_deleted": True}})
     doc = {"id": str(uuid.uuid4()), "storage_path": result["path"], "original_filename": file.filename,
            "content_type": MIME_TYPES[ext], "size": result.get("size", len(data)), "caption": caption,
            "slot": slot, "is_deleted": False, "created_at": now_utc().isoformat()}
