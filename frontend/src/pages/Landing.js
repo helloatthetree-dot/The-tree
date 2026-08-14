@@ -13,7 +13,7 @@ const COFFEE =
 const ZEN =
   "https://images.unsplash.com/photo-1608060146923-7b8ab13e22bb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxqYXBhbmVzZSUyMHplbiUyMGNhZmUlMjBhcmNoaXRlY3R1cmV8ZW58MHx8fHwxNzg1MTI1NjA3fDA&ixlib=rb-4.1.0&q=85";
 
-function TiltImage({ src }) {
+function TiltImage({ src, label, tagline }) {
   const ref = useRef(null);
   const [t, setT] = useState({ x: 0, y: 0 });
   const onMove = (e) => {
@@ -36,8 +36,8 @@ function TiltImage({ src }) {
         <img src={src} alt="Sunlight through the café windows" className="w-full h-[380px] md:h-[560px] object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-komorebi-ink/25 to-transparent" />
         <div className="absolute bottom-6 left-6 glass rounded-2xl px-5 py-3" style={{ transform: "translateZ(40px)" }}>
-          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-green font-semibold">Now serving</p>
-          <p className="font-display text-2xl text-komorebi-ink">Afternoon light & golden evenings</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-green font-semibold">{label || "Now serving"}</p>
+          <p className="font-display text-2xl text-komorebi-ink">{tagline || "Afternoon light & golden evenings"}</p>
         </div>
       </motion.div>
     </div>
@@ -86,12 +86,14 @@ export default function Landing() {
   const [gallery, setGallery] = useState([]);
   const [menu, setMenu] = useState({ enabled: true, items: [] });
   const [publicTables, setPublicTables] = useState([]);
+  const [site, setSite] = useState({ hero_label: "Now serving", hero_tagline: "Afternoon light & golden evenings" });
 
   useEffect(() => {
     window.scrollTo(0, 0);
     api.get("/gallery").then((r) => setGallery(r.data)).catch(() => {});
     api.get("/menu").then((r) => setMenu(r.data)).catch(() => {});
     api.get("/tables/public").then((r) => setPublicTables(r.data)).catch(() => {});
+    api.get("/settings/public").then((r) => setSite(r.data)).catch(() => {});
   }, []);
 
   const bySlot = (slot, fallback) => {
@@ -139,7 +141,7 @@ export default function Landing() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
-          <TiltImage src={HERO} />
+          <TiltImage src={bySlot("hero", HERO)} label={site.hero_label} tagline={site.hero_tagline} />
         </motion.div>
       </section>
 

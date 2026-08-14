@@ -438,6 +438,7 @@ function SettingsManager({ settings, onSaved }) {
         fee_per_person: Number(f.fee_per_person), refund_percent: Number(f.refund_percent),
         group_threshold: Number(f.group_threshold), hold_minutes: Number(f.hold_minutes),
         special_needs_approval: f.special_needs_approval, menu_enabled: f.menu_enabled,
+        hero_label: f.hero_label, hero_tagline: f.hero_tagline,
       });
       onSaved(data); toast.success("Settings saved");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -467,6 +468,19 @@ function SettingsManager({ settings, onSaved }) {
           <Switch data-testid="setting-menu-enabled" checked={f.menu_enabled} onCheckedChange={(v) => setF({ ...f, menu_enabled: v })} />
           <span className="text-sm text-komorebi-ink2">Show menu on homepage</span>
         </label>
+      </div>
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Homepage hero caption</p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-komorebi-muted">Small label</label>
+            <input data-testid="setting-hero-label" value={f.hero_label || ""} onChange={(e) => setF({ ...f, hero_label: e.target.value })} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="Now serving" />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">Tagline</label>
+            <input data-testid="setting-hero-tagline" value={f.hero_tagline || ""} onChange={(e) => setF({ ...f, hero_tagline: e.target.value })} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="Afternoon light & golden evenings" />
+          </div>
+        </div>
       </div>
       <button data-testid="save-settings-btn" onClick={save} className="mt-6 rounded-full bg-komorebi-green text-white px-6 py-2.5">Save settings</button>
     </div>

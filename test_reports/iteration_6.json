@@ -1,0 +1,29 @@
+{
+  "summary": "Tested owner-editable Homepage hero caption feature (hero_label, hero_tagline) end-to-end. All 5 backend pytest cases pass and the frontend flow verified in browser: owner updates fields in Owner settings → save → public homepage /  (no login) shows the updated caption. Defaults restored after test.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Owner settings → Homepage hero caption", "issues": ["Tagline input is much wider than Small label input; visually inconsistent. Cosmetic only."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_hero_caption.py",
+    "/app/test_reports/pytest/hero_caption.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PUT /api/admin/settings correctly only updates non-None provided fields (regression test confirms fee/refund/threshold/hold/toggles preserved when saving hero fields).",
+    "Owner-only guard (require_owner) works: admin@komorebi.cafe gets 403 as expected.",
+    "GET /api/settings/public exposes hero_label & hero_tagline with proper defaults."
+  ],
+  "updated_files": ["/app/backend/tests/test_hero_caption.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100%"},
+  "test_credentials": "Owner sabnamrajoria@gmail.com/Owner@123 and admin admin@komorebi.cafe/Admin@123 both worked.",
+  "seed_data_creation": "None. Hero fields set to QA values during test then reset to defaults ('Now serving' / 'Afternoon light & golden evenings').",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend tests in /app/backend/tests/test_hero_caption.py. Run with: pytest backend/tests/test_hero_caption.py -o addopts='' (project pytest.ini uses xdist-loadscope which cannot run single files without -o addopts=''). REACT_APP_BACKEND_URL must be exported in shell (not just in frontend/.env).",
+  "rca of the issue": "N/A – feature works as specified."
+}

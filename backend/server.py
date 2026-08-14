@@ -212,6 +212,8 @@ class SettingsInput(BaseModel):
     hold_minutes: Optional[int] = None
     special_needs_approval: Optional[bool] = None
     menu_enabled: Optional[bool] = None
+    hero_label: Optional[str] = None
+    hero_tagline: Optional[str] = None
 
 class UserRoleInput(BaseModel):
     role: Literal["customer", "admin", "super_admin"]
@@ -250,7 +252,8 @@ def _to_hhmm(mins: int) -> str:
 
 async def get_settings() -> dict:
     defaults = {"fee_per_person": 300, "refund_percent": 50, "group_threshold": 6,
-                "hold_minutes": 90, "special_needs_approval": True, "menu_enabled": True}
+                "hold_minutes": 90, "special_needs_approval": True, "menu_enabled": True,
+                "hero_label": "Now serving", "hero_tagline": "Afternoon light & golden evenings"}
     s = await db.settings.find_one({"_id": "global"})
     if not s:
         s = {"_id": "global", **defaults}
@@ -415,7 +418,8 @@ async def me(user: dict = Depends(get_current_user)):
 async def public_settings():
     s = await get_settings()
     return {"fee_per_person": s["fee_per_person"], "refund_percent": s["refund_percent"],
-            "group_threshold": s["group_threshold"], "menu_enabled": s["menu_enabled"]}
+            "group_threshold": s["group_threshold"], "menu_enabled": s["menu_enabled"],
+            "hero_label": s["hero_label"], "hero_tagline": s["hero_tagline"]}
 
 @api_router.get("/booking-window")
 async def booking_window():
