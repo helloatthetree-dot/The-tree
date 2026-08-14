@@ -1,0 +1,19 @@
+{
+  "summary": "Verified copy fix on public landing page ('/'). Hero badge now reads 'Afternoon light & golden evenings' and hero paragraph reads 'warm afternoons, golden evenings and quiet celebrations.' Zero occurrences of 'morning'/'mornings' anywhere on the landing page. Regression: hero, hours cards (Sat/Sun 12:30-10PM, Tue-Fri split, Monday Closed), Our tables, From our kitchen sections render without console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Landing copy fix verified via live Playwright test. Badge selector: text=Afternoon light & golden evenings. Regex \\bmornings?\\b returns 0 matches on landing page body text.",
+  "rca of the issue": "N/A - copy-only fix verified successful."
+}

@@ -37,7 +37,7 @@ function TiltImage({ src }) {
         <div className="absolute inset-0 bg-gradient-to-t from-komorebi-ink/25 to-transparent" />
         <div className="absolute bottom-6 left-6 glass rounded-2xl px-5 py-3" style={{ transform: "translateZ(40px)" }}>
           <p className="text-xs uppercase tracking-[0.2em] text-komorebi-green font-semibold">Now serving</p>
-          <p className="font-display text-2xl text-komorebi-ink">Afternoon light & slow mornings</p>
+          <p className="font-display text-2xl text-komorebi-ink">Afternoon light & golden evenings</p>
         </div>
       </motion.div>
     </div>
@@ -116,8 +116,8 @@ export default function Landing() {
             the trees.
           </h1>
           <p className="mt-6 text-base md:text-lg text-komorebi-ink2 max-w-md leading-relaxed">
-            Reserve a table at Café Komorebi — a calm, light-filled retreat for slow mornings, warm afternoons and
-            quiet celebrations.
+            Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings
+            and quiet celebrations.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link
