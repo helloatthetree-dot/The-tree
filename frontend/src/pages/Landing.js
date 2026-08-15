@@ -110,16 +110,11 @@ export default function Landing() {
             <Sun size={15} strokeWidth={1.5} className="text-komorebi-clay" />
             <span className="text-xs tracking-[0.15em] uppercase text-komorebi-ink2">Experience-driven café</span>
           </div>
-          <h1 className="font-display font-light text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight text-komorebi-ink">
-            Where sunlight
-            <br />
-            filters through
-            <br />
-            the trees.
+          <h1 className="font-display font-light text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tight text-komorebi-ink whitespace-pre-line">
+            {site.hero_headline || "Where sunlight\nfilters through\nthe trees."}
           </h1>
           <p className="mt-6 text-base md:text-lg text-komorebi-ink2 max-w-md leading-relaxed">
-            Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings
-            and quiet celebrations.
+            {site.hero_intro || "Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations."}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link

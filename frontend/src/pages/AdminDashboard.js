@@ -440,6 +440,7 @@ function SettingsManager({ settings, onSaved }) {
         special_needs_approval: f.special_needs_approval, menu_enabled: f.menu_enabled,
         hero_label: f.hero_label, hero_tagline: f.hero_tagline,
         gallery_cta_title: f.gallery_cta_title, gallery_cta_button: f.gallery_cta_button,
+        hero_headline: f.hero_headline, hero_intro: f.hero_intro,
       });
       onSaved(data); toast.success("Settings saved");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -493,6 +494,19 @@ function SettingsManager({ settings, onSaved }) {
           <div>
             <label className="text-xs text-komorebi-muted">Button label</label>
             <input data-testid="setting-gallery-button" value={f.gallery_cta_button || ""} onChange={(e) => setF({ ...f, gallery_cta_button: e.target.value })} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="Start booking" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Homepage headline & intro</p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-komorebi-muted">Big headline (each new line becomes a line break)</label>
+            <textarea data-testid="setting-hero-headline" value={f.hero_headline || ""} onChange={(e) => setF({ ...f, hero_headline: e.target.value })} rows={3} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none font-display text-xl leading-tight" placeholder="Where sunlight filters through the trees." />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">Intro paragraph</label>
+            <textarea data-testid="setting-hero-intro" value={f.hero_intro || ""} onChange={(e) => setF({ ...f, hero_intro: e.target.value })} rows={3} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="Reserve a table at Café Komorebi…" />
           </div>
         </div>
       </div>

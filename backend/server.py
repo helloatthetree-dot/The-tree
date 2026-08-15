@@ -216,6 +216,8 @@ class SettingsInput(BaseModel):
     hero_tagline: Optional[str] = None
     gallery_cta_title: Optional[str] = None
     gallery_cta_button: Optional[str] = None
+    hero_headline: Optional[str] = None
+    hero_intro: Optional[str] = None
 
 class UserRoleInput(BaseModel):
     role: Literal["customer", "admin", "super_admin"]
@@ -256,7 +258,9 @@ async def get_settings() -> dict:
     defaults = {"fee_per_person": 300, "refund_percent": 50, "group_threshold": 6,
                 "hold_minutes": 90, "special_needs_approval": True, "menu_enabled": True,
                 "hero_label": "Now serving", "hero_tagline": "Afternoon light & golden evenings",
-                "gallery_cta_title": "Reserve your window seat", "gallery_cta_button": "Start booking"}
+                "gallery_cta_title": "Reserve your window seat", "gallery_cta_button": "Start booking",
+                "hero_headline": "Where sunlight\nfilters through\nthe trees.",
+                "hero_intro": "Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations."}
     s = await db.settings.find_one({"_id": "global"})
     if not s:
         s = {"_id": "global", **defaults}
@@ -423,7 +427,8 @@ async def public_settings():
     return {"fee_per_person": s["fee_per_person"], "refund_percent": s["refund_percent"],
             "group_threshold": s["group_threshold"], "menu_enabled": s["menu_enabled"],
             "hero_label": s["hero_label"], "hero_tagline": s["hero_tagline"],
-            "gallery_cta_title": s["gallery_cta_title"], "gallery_cta_button": s["gallery_cta_button"]}
+            "gallery_cta_title": s["gallery_cta_title"], "gallery_cta_button": s["gallery_cta_button"],
+            "hero_headline": s["hero_headline"], "hero_intro": s["hero_intro"]}
 
 @api_router.get("/booking-window")
 async def booking_window():
