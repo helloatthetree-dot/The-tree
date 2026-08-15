@@ -439,6 +439,7 @@ function SettingsManager({ settings, onSaved }) {
         group_threshold: Number(f.group_threshold), hold_minutes: Number(f.hold_minutes),
         special_needs_approval: f.special_needs_approval, menu_enabled: f.menu_enabled,
         hero_label: f.hero_label, hero_tagline: f.hero_tagline,
+        gallery_cta_title: f.gallery_cta_title, gallery_cta_button: f.gallery_cta_button,
       });
       onSaved(data); toast.success("Settings saved");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -479,6 +480,19 @@ function SettingsManager({ settings, onSaved }) {
           <div>
             <label className="text-xs text-komorebi-muted">Tagline</label>
             <input data-testid="setting-hero-tagline" value={f.hero_tagline || ""} onChange={(e) => setF({ ...f, hero_tagline: e.target.value })} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="Afternoon light & golden evenings" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-4">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Gallery banner (bottom-right image)</p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-komorebi-muted">Heading</label>
+            <input data-testid="setting-gallery-title" value={f.gallery_cta_title || ""} onChange={(e) => setF({ ...f, gallery_cta_title: e.target.value })} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="Reserve your window seat" />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">Button label</label>
+            <input data-testid="setting-gallery-button" value={f.gallery_cta_button || ""} onChange={(e) => setF({ ...f, gallery_cta_button: e.target.value })} className="mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="Start booking" />
           </div>
         </div>
       </div>

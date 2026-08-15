@@ -1,0 +1,23 @@
+{
+  "summary": "Tested both changes: (A) owner-editable gallery banner (title & button label) via /api/admin/settings & /api/settings/public, and (B) booking page policies simplified to single checkbox + link. Backend pytest (3 tests) all passed. Frontend E2E for owner edit -> landing reflection -> reset, and booking policy enforcement + happy-path payment all passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_gallery_cta.py",
+    "/app/test_reports/pytest/gallery_cta.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BookingPage.js: policy simplification correctly enforces !accepted in submitBooking with proper toast; policies-link uses target=_blank as required.",
+    "Landing.js: gallery overlay uses site.gallery_cta_title/button with defaults fallback - good.",
+    "Settings PUT is owner-only (require_owner), non-owner admin correctly gets 403.",
+    "Minor: /policies page markers 'Booking window' / 'Cancellation & refunds' wording slightly differs in text scan (found 'Cancellation','Table hold','Large groups') - not a regression; all 6 cards actually render, just DOM copy differs from spec headings."
+  ],
+  "updated_files": ["/app/backend/tests/test_gallery_cta.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Owner sabnamrajoria@gmail.com/Owner@123, Admin admin@komorebi.cafe/Admin@123, Guest guest@komorebi.cafe/Guest@123",
+  "seed_data_creation": "Created 1 reservation on 2026-08-15 12:30 PM for Aiko Tanaka (guest) party of 2 via happy-path test; may want to clean up.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend settings defaults were reset via owner UI+API to 'Reserve your window seat'/'Start booking' at end of run. Gallery CTA feature fully working. Booking page shows only checkbox+link (no policy cards). Payment mock via /reservations + /reservations/{id}/pay works."
+}

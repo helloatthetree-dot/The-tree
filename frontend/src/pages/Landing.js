@@ -262,13 +262,13 @@ export default function Landing() {
           <img src={bySlot("gallery_2", ZEN)} alt="Zen interior" className="w-full h-72 md:h-96 object-cover" />
           <div className="absolute inset-0 bg-komorebi-ink/35 grid place-items-center text-center p-8">
             <div>
-              <h3 className="font-display text-3xl md:text-4xl text-white">Reserve your window seat</h3>
+              <h3 className="font-display text-3xl md:text-4xl text-white">{site.gallery_cta_title || "Reserve your window seat"}</h3>
               <Link
                 to="/book"
                 data-testid="gallery-reserve-btn"
                 className="inline-flex mt-5 items-center gap-2 rounded-full bg-white text-komorebi-ink px-6 py-3 text-sm font-medium hover:bg-komorebi-bg transition-colors"
               >
-                Start booking <ArrowRight size={16} strokeWidth={1.5} />
+                {site.gallery_cta_button || "Start booking"} <ArrowRight size={16} strokeWidth={1.5} />
               </Link>
             </div>
           </div>

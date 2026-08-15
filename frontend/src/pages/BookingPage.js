@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import api, { formatApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import PoliciesPage from "./PoliciesPage";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../components/ui/select";
@@ -229,10 +228,22 @@ export default function BookingPage() {
               </div>
             </div>
 
-            {/* Policies embedded */}
-            <div className="rounded-2xl bg-white hairline p-6">
-              <h3 className="font-display text-2xl text-komorebi-ink mb-4">Policies</h3>
-              <PoliciesPage embedded accepted={accepted} onAccept={setAccepted} />
+            {/* Policies acceptance */}
+            <div className="rounded-2xl bg-white hairline p-5">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox" data-testid="accept-policies-checkbox" checked={accepted}
+                  onChange={(e) => setAccepted(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 accent-komorebi-green shrink-0"
+                />
+                <span className="text-sm text-komorebi-ink2">
+                  I have read and accept the{" "}
+                  <Link to="/policies" target="_blank" data-testid="policies-link" className="text-komorebi-green font-semibold underline underline-offset-2 hover:text-komorebi-greenDark">
+                    reservation policies
+                  </Link>
+                  {" "}— including the ₹300/guest fee and 50% refund on cancellation.
+                </span>
+              </label>
             </div>
 
             {/* Summary + pay */}
