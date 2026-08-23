@@ -1,0 +1,31 @@
+{
+  "summary": "Backend regression suite after behavior-preserving refactor of available_tables_for, google_session, and startup seeding + security fix in test_hero_caption.py. Ran backend_test.py + test_hero_caption.py (48 tests total). Initial run: 47 passed / 1 failed (test_public_menu asserted >=6 items but DB had 4 — 2 seeded items had been manually deleted in prior iterations; _seed_menu is idempotent on count==0 so it did not re-insert). Restored the 2 missing items via owner API; re-ran → all 48 tests PASS. Refactor introduced no regressions: availability engine, full reservation + mock payment flow (normal confirmed with table_name; special-occasion & >6 party pending_approval), Google auth endpoint (invalid session_id → 401, empty body → 422), seeded accounts login (owner/admin/customer), 8 tables + 6 menu items, waitlist, admin approve/reject, blocks, tables/status, analytics, owner-only settings updates + non-owner 403 + public reflection all working. Security fix confirmed: test_hero_caption.py no longer hardcodes passwords — loads SUPER_ADMIN_*/ADMIN_* from backend/.env via python-dotenv; all 5 of its tests pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/menu (seeding)", "issue": "_seed_menu is guarded by count!=0 so if items are individually deleted (as happened between iterations), they are never re-seeded. Not a refactor regression (behavior unchanged), but worth considering upsert-by-name seeding to make it truly idempotent."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_hero_caption.py",
+    "/app/test_reports/pytest/iteration_9.xml"
+  ],
+  "action_items": [
+    "Optional: convert _seed_menu / _seed_tables to upsert-by-name so accidentally deleted seed rows self-heal on restart."
+  ],
+  "critical_code_review_comments": [
+    "Refactor is clean — helpers are pure and well-scoped; no behavior change confirmed by full regression suite.",
+    "_seed_* helpers use count!=0 short-circuit → not truly idempotent per item; consider upsert semantics.",
+    "server.py is ~975 lines — approaching threshold where splitting into modules (auth, reservations, admin, menu, storage) is warranted."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (48/48)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Owner sabnamrajoria@gmail.com/Owner@123, Admin admin@komorebi.cafe/Admin@123, Customer guest@komorebi.cafe/Guest@123 — all working.",
+  "seed_data_creation": "Restored 2 originally-seeded menu items ('Garden Soba Bowl', 'Hojicha Affogato') that had been deleted in prior iterations, to match seed baseline. All TEST_ prefixed data created during runs was cleaned up by tests themselves. Text settings (hero_label, hero_tagline) reset to defaults by test_hero_caption teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "backend_test.py + test_hero_caption.py in /app/backend/tests/ cover the full regression surface for this app and run in ~9s under pytest-xdist. Menu seed baseline is 6 items; if TestMenu::test_public_menu fails with <6, DB state has drifted — restore missing items via POST /api/admin/menu as owner rather than modifying the test. Google session endpoint returns 401 for invalid session_id (not 400).",
+  "rca of the issue": "test_public_menu failure RCA: refactor extracted seed logic into _seed_menu but preserved the original 'if count != 0: return' guard. Between iterations, 2 seed menu items were removed (manually or by an incomplete cleanup in a previous testing agent), leaving 4 rows. Since count != 0, _seed_menu no-ops on subsequent startups. Not a refactor regression — same behavior existed before. Mitigation: either restore rows (done) or refactor _seed_menu to upsert by name."
+}

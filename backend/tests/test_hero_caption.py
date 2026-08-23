@@ -1,19 +1,23 @@
 """Tests for editable hero caption (hero_label, hero_tagline) settings."""
 import os
+from pathlib import Path
 import pytest
 import requests
+from dotenv import load_dotenv
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
-OWNER_EMAIL = "sabnamrajoria@gmail.com"
-OWNER_PASSWORD = "Owner@123"
-ADMIN_EMAIL = "admin@komorebi.cafe"
-ADMIN_PASSWORD = "Admin@123"
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/")
+OWNER_EMAIL = os.environ["SUPER_ADMIN_EMAIL"]
+OWNER_PASSWORD = os.environ["SUPER_ADMIN_PASSWORD"]
+ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 DEFAULT_LABEL = "Now serving"
 DEFAULT_TAGLINE = "Afternoon light & golden evenings"
 
 
-def _login(email, password):
+def _login(email: str, password: str) -> str:
     r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
     assert r.status_code == 200, f"login failed {email}: {r.status_code} {r.text}"
     return r.json().get("token") or r.json().get("access_token")

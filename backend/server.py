@@ -308,9 +308,20 @@ async def is_date_blocked(d: str) -> Optional[str]:
         return block.get("reason") or "Date unavailable"
     return None
 
+def _slots_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
+    return a_start < b_end and b_start < a_end
+
+def _table_is_free(tid: str, reservations: list, slot_start: int, slot_end: int, hold_minutes: int) -> bool:
+    for r in reservations:
+        if r.get("table_id") != tid:
+            continue
+        r_start = _to_minutes(r["time"])
+        if _slots_overlap(slot_start, slot_end, r_start, r_start + hold_minutes):
+            return False
+    return True
+
 async def available_tables_for(d: str, t: str, people: int, hold_minutes: int):
     """Return list of active tables that can seat `people` and are free at date/time."""
-    dt_obj = datetime.strptime(d, "%Y-%m-%d").date()
     slot_start = _to_minutes(t)
     slot_end = slot_start + hold_minutes
 
@@ -329,22 +340,9 @@ async def available_tables_for(d: str, t: str, people: int, hold_minutes: int):
         "table_id": {"$ne": None},
     }).to_list(1000)
 
-    free = []
-    for tb in tables:
-        tid = str(tb["_id"])
-        if tid in blocked_table_ids:
-            continue
-        occupied = False
-        for r in reservations:
-            if r.get("table_id") != tid:
-                continue
-            r_start = _to_minutes(r["time"])
-            r_end = r_start + hold_minutes
-            if slot_start < r_end and r_start < slot_end:
-                occupied = True
-                break
-        if not occupied:
-            free.append(tb)
+    free = [tb for tb in tables
+            if str(tb["_id"]) not in blocked_table_ids
+            and _table_is_free(str(tb["_id"]), reservations, slot_start, slot_end, hold_minutes)]
     free.sort(key=lambda x: x["capacity"])
     return free
 
@@ -380,39 +378,44 @@ async def login(body: LoginInput):
     token = create_access_token(uid, email, user["role"])
     return {"access_token": token, "user": {"id": uid, "name": user["name"], "email": email, "role": user["role"], "phone": user.get("phone", ""), "picture": user.get("picture", "")}}
 
-@api_router.post("/auth/google/session")
-async def google_session(body: GoogleSessionInput):
-    """Exchange an Emergent Google session_id for the app's own JWT."""
+EMERGENT_OAUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+
+def _fetch_google_session(session_id: str) -> dict:
     try:
-        resp = requests.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": body.session_id}, timeout=30)
+        resp = requests.get(EMERGENT_OAUTH_URL, headers={"X-Session-ID": session_id}, timeout=30)
     except Exception:
         raise HTTPException(status_code=502, detail="Auth service unavailable")
     if resp.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid or expired Google session")
-    data = resp.json()
+    return resp.json()
+
+async def _upsert_google_user(data: dict):
+    """Create or update the Google user; return (uid, name, role, email, phone, picture)."""
     email = (data.get("email") or "").lower()
     if not email:
         raise HTTPException(status_code=400, detail="Google account has no email")
-
+    picture = data.get("picture", "")
     user = await db.users.find_one({"email": email})
     if not user:
         role = "super_admin" if email == os.environ["SUPER_ADMIN_EMAIL"].lower() else "customer"
         doc = {"name": data.get("name") or email.split("@")[0], "email": email,
-               "password_hash": None, "role": role, "phone": "", "picture": data.get("picture", ""),
+               "password_hash": None, "role": role, "phone": "", "picture": picture,
                "auth_provider": "google", "created_at": now_utc().isoformat()}
         res = await db.users.insert_one(doc)
-        uid, name, pic = str(res.inserted_id), doc["name"], doc["picture"]
-    else:
-        uid, role, name = str(user["_id"]), user["role"], user["name"]
-        pic = user.get("picture") or data.get("picture", "")
-        if data.get("picture") and not user.get("picture"):
-            await db.users.update_one({"_id": user["_id"]}, {"$set": {"picture": data["picture"]}})
+        return str(res.inserted_id), doc["name"], role, email, "", picture
+    if picture and not user.get("picture"):
+        await db.users.update_one({"_id": user["_id"]}, {"$set": {"picture": picture}})
+    return (str(user["_id"]), user["name"], user["role"], email,
+            user.get("phone", ""), user.get("picture") or picture)
 
+@api_router.post("/auth/google/session")
+async def google_session(body: GoogleSessionInput):
+    """Exchange an Emergent Google session_id for the app's own JWT."""
+    data = _fetch_google_session(body.session_id)
+    uid, name, role, email, phone, pic = await _upsert_google_user(data)
     token = create_access_token(uid, email, role)
     return {"access_token": token, "user": {"id": uid, "name": name, "email": email, "role": role,
-                                            "phone": (user.get("phone", "") if user else ""), "picture": pic}}
+                                            "phone": phone, "picture": pic}}
 
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
@@ -893,6 +896,54 @@ async def delete_menu(mid: str, user: dict = Depends(require_owner)):
 # ---------------------------------------------------------------------------
 # Startup seeding
 # ---------------------------------------------------------------------------
+async def _ensure_seed_user(email_env: str, pass_env: str, name: str, role: str) -> None:
+    email = os.environ[email_env].lower()
+    pw = os.environ[pass_env]
+    existing = await db.users.find_one({"email": email})
+    if not existing:
+        await db.users.insert_one({"name": name, "email": email, "password_hash": hash_password(pw),
+                                   "role": role, "phone": "", "created_at": now_utc().isoformat()})
+    elif not verify_password(pw, existing["password_hash"]):
+        await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(pw), "role": role}})
+
+async def _seed_demo_customer() -> None:
+    if not await db.users.find_one({"email": "guest@komorebi.cafe"}):
+        await db.users.insert_one({"name": "Aiko Tanaka", "email": "guest@komorebi.cafe",
+                                   "password_hash": hash_password("Guest@123"), "role": "customer",
+                                   "phone": "+91 90000 12345", "created_at": now_utc().isoformat()})
+
+async def _seed_tables() -> None:
+    if await db.tables.count_documents({}) != 0:
+        return
+    seed_tables = [
+        {"name": "Sakura 1", "capacity": 2, "zone": "indoor", "active": True, "notes": "Window seat"},
+        {"name": "Sakura 2", "capacity": 2, "zone": "indoor", "active": True, "notes": ""},
+        {"name": "Bamboo 1", "capacity": 4, "zone": "indoor", "active": True, "notes": ""},
+        {"name": "Bamboo 2", "capacity": 4, "zone": "indoor", "active": True, "notes": ""},
+        {"name": "Zen Hall", "capacity": 8, "zone": "indoor", "active": True, "notes": "Large groups"},
+        {"name": "Garden 1", "capacity": 2, "zone": "outdoor", "active": True, "notes": "Under the maple"},
+        {"name": "Garden 2", "capacity": 4, "zone": "outdoor", "active": True, "notes": ""},
+        {"name": "Terrace", "capacity": 6, "zone": "outdoor", "active": True, "notes": "Sunset view"},
+    ]
+    for t in seed_tables:
+        t["created_at"] = now_utc().isoformat()
+    await db.tables.insert_many(seed_tables)
+
+async def _seed_menu() -> None:
+    if await db.menu_items.count_documents({}) != 0:
+        return
+    seed_menu = [
+        {"name": "Komorebi Pour-Over", "description": "Single-origin beans, brewed slow over filtered light.", "price": 320, "category": "Coffee", "image_url": "", "active": True},
+        {"name": "Matcha Cloud Latte", "description": "Ceremonial matcha, oat milk, a whisper of cane sugar.", "price": 340, "category": "Coffee", "image_url": "", "active": True},
+        {"name": "Yuzu Cheesecake", "description": "Baked cheesecake with bright yuzu and a sesame crust.", "price": 380, "category": "Dessert", "image_url": "", "active": True},
+        {"name": "Garden Soba Bowl", "description": "Chilled soba, seasonal greens, sesame-ginger dressing.", "price": 460, "category": "Mains", "image_url": "", "active": True},
+        {"name": "Maple Miso Toast", "description": "Sourdough, miso butter, maple, toasted walnuts.", "price": 290, "category": "Small Plates", "image_url": "", "active": True},
+        {"name": "Hojicha Affogato", "description": "Roasted-tea ice cream drowned in warm espresso.", "price": 300, "category": "Dessert", "image_url": "", "active": True},
+    ]
+    for m in seed_menu:
+        m["created_at"] = now_utc().isoformat()
+    await db.menu_items.insert_many(seed_menu)
+
 @app.on_event("startup")
 async def startup():
     try:
@@ -902,55 +953,11 @@ async def startup():
         logger.error(f"Storage init failed: {e}")
     await db.users.create_index("email", unique=True)
     await get_settings()
-
-    async def ensure_user(email_env, pass_env, name, role):
-        email = os.environ[email_env].lower()
-        pw = os.environ[pass_env]
-        existing = await db.users.find_one({"email": email})
-        if not existing:
-            await db.users.insert_one({"name": name, "email": email, "password_hash": hash_password(pw),
-                                       "role": role, "phone": "", "created_at": now_utc().isoformat()})
-        elif not verify_password(pw, existing["password_hash"]):
-            await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(pw), "role": role}})
-
-    await ensure_user("SUPER_ADMIN_EMAIL", "SUPER_ADMIN_PASSWORD", "Café Owner", "super_admin")
-    await ensure_user("ADMIN_EMAIL", "ADMIN_PASSWORD", "Café Manager", "admin")
-
-    # demo customer
-    if not await db.users.find_one({"email": "guest@komorebi.cafe"}):
-        await db.users.insert_one({"name": "Aiko Tanaka", "email": "guest@komorebi.cafe",
-                                   "password_hash": hash_password("Guest@123"), "role": "customer",
-                                   "phone": "+91 90000 12345", "created_at": now_utc().isoformat()})
-
-    # seed tables
-    if await db.tables.count_documents({}) == 0:
-        seed_tables = [
-            {"name": "Sakura 1", "capacity": 2, "zone": "indoor", "active": True, "notes": "Window seat"},
-            {"name": "Sakura 2", "capacity": 2, "zone": "indoor", "active": True, "notes": ""},
-            {"name": "Bamboo 1", "capacity": 4, "zone": "indoor", "active": True, "notes": ""},
-            {"name": "Bamboo 2", "capacity": 4, "zone": "indoor", "active": True, "notes": ""},
-            {"name": "Zen Hall", "capacity": 8, "zone": "indoor", "active": True, "notes": "Large groups"},
-            {"name": "Garden 1", "capacity": 2, "zone": "outdoor", "active": True, "notes": "Under the maple"},
-            {"name": "Garden 2", "capacity": 4, "zone": "outdoor", "active": True, "notes": ""},
-            {"name": "Terrace", "capacity": 6, "zone": "outdoor", "active": True, "notes": "Sunset view"},
-        ]
-        for t in seed_tables:
-            t["created_at"] = now_utc().isoformat()
-        await db.tables.insert_many(seed_tables)
-
-    # seed menu
-    if await db.menu_items.count_documents({}) == 0:
-        seed_menu = [
-            {"name": "Komorebi Pour-Over", "description": "Single-origin beans, brewed slow over filtered light.", "price": 320, "category": "Coffee", "image_url": "", "active": True},
-            {"name": "Matcha Cloud Latte", "description": "Ceremonial matcha, oat milk, a whisper of cane sugar.", "price": 340, "category": "Coffee", "image_url": "", "active": True},
-            {"name": "Yuzu Cheesecake", "description": "Baked cheesecake with bright yuzu and a sesame crust.", "price": 380, "category": "Dessert", "image_url": "", "active": True},
-            {"name": "Garden Soba Bowl", "description": "Chilled soba, seasonal greens, sesame-ginger dressing.", "price": 460, "category": "Mains", "image_url": "", "active": True},
-            {"name": "Maple Miso Toast", "description": "Sourdough, miso butter, maple, toasted walnuts.", "price": 290, "category": "Small Plates", "image_url": "", "active": True},
-            {"name": "Hojicha Affogato", "description": "Roasted-tea ice cream drowned in warm espresso.", "price": 300, "category": "Dessert", "image_url": "", "active": True},
-        ]
-        for m in seed_menu:
-            m["created_at"] = now_utc().isoformat()
-        await db.menu_items.insert_many(seed_menu)
+    await _ensure_seed_user("SUPER_ADMIN_EMAIL", "SUPER_ADMIN_PASSWORD", "Café Owner", "super_admin")
+    await _ensure_seed_user("ADMIN_EMAIL", "ADMIN_PASSWORD", "Café Manager", "admin")
+    await _seed_demo_customer()
+    await _seed_tables()
+    await _seed_menu()
     logger.info("Startup seeding complete")
 
 app.include_router(api_router)
