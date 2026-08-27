@@ -102,7 +102,10 @@ export default function MyReservations() {
                       <span>₹{r.amount} paid</span>
                     </div>
                     {r.status === "cancelled" && r.refund_amount > 0 && (
-                      <p className="text-xs text-komorebi-green mt-2">₹{r.refund_amount} refunded</p>
+                      <p data-testid={`refund-${r.id}`} className="text-xs text-komorebi-green mt-2">₹{r.refund_amount} refunded</p>
+                    )}
+                    {r.status === "rejected" && r.refund_amount > 0 && (
+                      <p data-testid={`refund-${r.id}`} className="text-xs text-komorebi-green mt-2">₹{r.refund_amount} refunded in full</p>
                     )}
                     {r.admin_note && <p className="text-xs text-komorebi-muted mt-2 italic">Note: {r.admin_note}</p>}
                   </div>
