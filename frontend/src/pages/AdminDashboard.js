@@ -442,6 +442,11 @@ function SettingsManager({ settings, onSaved }) {
         hero_label: f.hero_label, hero_tagline: f.hero_tagline,
         gallery_cta_title: f.gallery_cta_title, gallery_cta_button: f.gallery_cta_button,
         hero_headline: f.hero_headline, hero_intro: f.hero_intro,
+        footer_note: f.footer_note,
+        contact_heading: f.contact_heading, contact_whatsapp: f.contact_whatsapp,
+        contact_phone: f.contact_phone, contact_email: f.contact_email,
+        contact_address: f.contact_address, policies_intro: f.policies_intro,
+        hours: f.hours, policies: f.policies,
       });
       onSaved(data); toast.success("Settings saved");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -455,6 +460,14 @@ function SettingsManager({ settings, onSaved }) {
       </div>
     </div>
   );
+  const updateList = (key, idx, subkey, val) => {
+    const arr = [...(f[key] || [])];
+    arr[idx] = { ...arr[idx], [subkey]: val };
+    setF({ ...f, [key]: arr });
+  };
+  const addItem = (key, blank) => setF({ ...f, [key]: [...(f[key] || []), blank] });
+  const removeItem = (key, idx) => setF({ ...f, [key]: (f[key] || []).filter((_, i) => i !== idx) });
+  const txtCls = "mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none";
   return (
     <div className="rounded-2xl bg-white hairline p-6">
       <h3 className="font-display text-2xl mb-4">Reservation rules & policies</h3>
@@ -511,6 +524,80 @@ function SettingsManager({ settings, onSaved }) {
           </div>
         </div>
       </div>
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Footer note</p>
+        <input data-testid="setting-footer-note" value={f.footer_note || ""} onChange={(e) => setF({ ...f, footer_note: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="The Tree · Open Tuesday to Sunday" />
+      </div>
+
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Contact & WhatsApp</p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-komorebi-muted">Contact heading</label>
+            <input data-testid="setting-contact-heading" value={f.contact_heading || ""} onChange={(e) => setF({ ...f, contact_heading: e.target.value })} className={txtCls} placeholder="Reach us on WhatsApp" />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">WhatsApp number (with country code, digits only)</label>
+            <input data-testid="setting-contact-whatsapp" value={f.contact_whatsapp || ""} onChange={(e) => setF({ ...f, contact_whatsapp: e.target.value.replace(/[^0-9]/g, "") })} className={txtCls} placeholder="919148271005" />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">Phone (display)</label>
+            <input data-testid="setting-contact-phone" value={f.contact_phone || ""} onChange={(e) => setF({ ...f, contact_phone: e.target.value })} className={txtCls} placeholder="+91 91482 71005" />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">Email</label>
+            <input data-testid="setting-contact-email" value={f.contact_email || ""} onChange={(e) => setF({ ...f, contact_email: e.target.value })} className={txtCls} placeholder="hello@thetree.cafe" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-komorebi-muted">Address</label>
+            <input data-testid="setting-contact-address" value={f.contact_address || ""} onChange={(e) => setF({ ...f, contact_address: e.target.value })} className={txtCls} placeholder="123 Garden Lane, Bengaluru" />
+          </div>
+        </div>
+        {f.contact_whatsapp && (
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https://wa.me/${f.contact_whatsapp}`} alt="WhatsApp QR preview" className="mt-4 rounded-xl hairline bg-white p-1" width="110" height="110" />
+        )}
+      </div>
+
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Opening hours cards</p>
+          <button type="button" data-testid="add-hours-btn" onClick={() => addItem("hours", { days: "", time: "", note: "" })} className="text-xs text-komorebi-green underline">+ Add card</button>
+        </div>
+        <div className="space-y-3">
+          {(f.hours || []).map((h, i) => (
+            <div key={i} className="grid md:grid-cols-3 gap-3 rounded-xl bg-komorebi-bg/60 p-3 relative">
+              <input data-testid={`hours-days-${i}`} value={h.days || ""} onChange={(e) => updateList("hours", i, "days", e.target.value)} className={txtCls} placeholder="Days (e.g. Saturday & Sunday)" />
+              <input data-testid={`hours-time-${i}`} value={h.time || ""} onChange={(e) => updateList("hours", i, "time", e.target.value)} className={txtCls} placeholder="Time" />
+              <div className="flex gap-2">
+                <input data-testid={`hours-note-${i}`} value={h.note || ""} onChange={(e) => updateList("hours", i, "note", e.target.value)} className={txtCls} placeholder="Note" />
+                <button type="button" data-testid={`remove-hours-${i}`} onClick={() => removeItem("hours", i)} className="mt-1 shrink-0 text-komorebi-clay text-sm px-2">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Reservation policies</p>
+        <label className="text-xs text-komorebi-muted">Intro paragraph</label>
+        <textarea data-testid="setting-policies-intro" value={f.policies_intro || ""} onChange={(e) => setF({ ...f, policies_intro: e.target.value })} rows={2} className={txtCls} placeholder="A few gentle guidelines…" />
+        <div className="flex items-center justify-between mt-4 mb-2">
+          <p className="text-xs text-komorebi-muted">Policy cards</p>
+          <button type="button" data-testid="add-policy-btn" onClick={() => addItem("policies", { title: "", body: "" })} className="text-xs text-komorebi-green underline">+ Add policy</button>
+        </div>
+        <div className="space-y-3">
+          {(f.policies || []).map((p, i) => (
+            <div key={i} className="rounded-xl bg-komorebi-bg/60 p-3">
+              <div className="flex gap-2 items-center">
+                <input data-testid={`policy-title-${i}`} value={p.title || ""} onChange={(e) => updateList("policies", i, "title", e.target.value)} className={txtCls} placeholder="Policy title" />
+                <button type="button" data-testid={`remove-policy-${i}`} onClick={() => removeItem("policies", i)} className="mt-1 shrink-0 text-komorebi-clay text-sm px-2">✕</button>
+              </div>
+              <textarea data-testid={`policy-body-${i}`} value={p.body || ""} onChange={(e) => updateList("policies", i, "body", e.target.value)} rows={2} className={txtCls} placeholder="Policy description" />
+            </div>
+          ))}
+        </div>
+      </div>
+
       <button data-testid="save-settings-btn" onClick={save} className="mt-6 rounded-full bg-komorebi-green text-white px-6 py-2.5">Save settings</button>
     </div>
   );

@@ -3,23 +3,28 @@ import { Link } from "react-router-dom";
 import api from "../lib/api";
 import { IndianRupee, RefreshCw, Clock, Users, Utensils, Shuffle, Check } from "lucide-react";
 
-const POLICIES = [
-  { icon: IndianRupee, title: "Reservation fee", body: "A fee of ₹300 per guest is collected at the time of booking to confirm your table." },
-  { icon: RefreshCw, title: "Cancellation & refund", body: "Cancel anytime before your visit for a 50% refund of the reservation fee." },
-  { icon: Clock, title: "Table hold", body: "Tables are held only for your reserved duration. Please arrive on time to enjoy your full seating." },
-  { icon: Users, title: "Large groups", body: "Parties larger than 6 guests require manual confirmation by our team before the table is finalised." },
-  { icon: Utensils, title: "Outside food & décor", body: "Outside food and any decorations (for celebrations) need prior approval from the café." },
-  { icon: Shuffle, title: "Table reassignment", body: "The café may reassign tables when operationally necessary to seat everyone comfortably." },
+const ICONS = [IndianRupee, RefreshCw, Clock, Users, Utensils, Shuffle];
+const DEFAULT_POLICIES = [
+  { title: "Reservation fee", body: "A fee of ₹300 per guest is collected at the time of booking to confirm your table." },
+  { title: "Cancellation & refund", body: "Cancel anytime before your visit for a 50% refund of the reservation fee." },
+  { title: "Table hold", body: "Tables are held only for your reserved duration. Please arrive on time to enjoy your full seating." },
+  { title: "Large groups", body: "Parties larger than 6 guests require manual confirmation by our team before the table is finalised." },
+  { title: "Outside food & décor", body: "Outside food and any decorations (for celebrations) need prior approval from the café." },
+  { title: "Table reassignment", body: "The café may reassign tables when operationally necessary to seat everyone comfortably." },
 ];
 
 export default function PoliciesPage({ embedded, accepted, onAccept }) {
   const [fee, setFee] = useState(300);
   const [refund, setRefund] = useState(50);
+  const [policies, setPolicies] = useState(DEFAULT_POLICIES);
+  const [intro, setIntro] = useState("A few gentle guidelines so every guest enjoys the calm of The Tree.");
 
   useEffect(() => {
     api.get("/settings/public").then((r) => {
       setFee(r.data.fee_per_person);
       setRefund(r.data.refund_percent);
+      if (r.data.policies?.length) setPolicies(r.data.policies);
+      if (r.data.policies_intro) setIntro(r.data.policies_intro);
     }).catch(() => {});
   }, []);
 
@@ -31,7 +36,7 @@ export default function PoliciesPage({ embedded, accepted, onAccept }) {
             <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Before you book</p>
             <h1 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Reservation policies</h1>
             <p className="mt-4 text-komorebi-ink2 max-w-2xl leading-relaxed">
-              A few gentle guidelines so every guest enjoys the calm of Komorebi. The reservation fee is{" "}
+              {intro}{" "}The reservation fee is{" "}
               <span className="text-komorebi-green font-semibold">₹{fee} per guest</span>, with a{" "}
               <span className="text-komorebi-green font-semibold">{refund}% refund</span> on cancellation.
             </p>
@@ -39,17 +44,20 @@ export default function PoliciesPage({ embedded, accepted, onAccept }) {
         )}
 
         <div className="grid md:grid-cols-2 gap-4 mt-8">
-          {POLICIES.map((p) => (
-            <div key={p.title} className="rounded-2xl bg-white hairline p-6 flex gap-4">
-              <span className="shrink-0 grid place-items-center h-11 w-11 rounded-xl bg-komorebi-green/10 text-komorebi-green">
-                <p.icon size={20} strokeWidth={1.5} />
-              </span>
-              <div>
-                <h3 className="font-semibold text-komorebi-ink">{p.title}</h3>
-                <p className="text-sm text-komorebi-ink2 mt-1 leading-relaxed">{p.body}</p>
+          {policies.map((p, i) => {
+            const Icon = ICONS[i % ICONS.length];
+            return (
+              <div key={i} className="rounded-2xl bg-white hairline p-6 flex gap-4">
+                <span className="shrink-0 grid place-items-center h-11 w-11 rounded-xl bg-komorebi-green/10 text-komorebi-green">
+                  <Icon size={20} strokeWidth={1.5} />
+                </span>
+                <div>
+                  <h3 className="font-semibold text-komorebi-ink">{p.title}</h3>
+                  <p className="text-sm text-komorebi-ink2 mt-1 leading-relaxed">{p.body}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {embedded ? (

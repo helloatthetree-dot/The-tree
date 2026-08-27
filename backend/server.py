@@ -229,6 +229,15 @@ class SettingsInput(BaseModel):
     gallery_cta_button: Optional[str] = None
     hero_headline: Optional[str] = None
     hero_intro: Optional[str] = None
+    footer_note: Optional[str] = None
+    contact_heading: Optional[str] = None
+    contact_whatsapp: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_address: Optional[str] = None
+    policies_intro: Optional[str] = None
+    hours: Optional[List[dict]] = None
+    policies: Optional[List[dict]] = None
 
 class UserRoleInput(BaseModel):
     role: Literal["customer", "admin", "super_admin"]
@@ -271,7 +280,27 @@ async def get_settings() -> dict:
                 "hero_label": "Now serving", "hero_tagline": "Afternoon light & golden evenings",
                 "gallery_cta_title": "Reserve your window seat", "gallery_cta_button": "Start booking",
                 "hero_headline": "Where sunlight\nfilters through\nthe trees.",
-                "hero_intro": "Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations."}
+                "hero_intro": "Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations.",
+                "footer_note": "The Tree · Open Tuesday to Sunday",
+                "contact_heading": "Reach us on WhatsApp",
+                "contact_whatsapp": "919148271005",
+                "contact_phone": "",
+                "contact_email": "",
+                "contact_address": "",
+                "policies_intro": "A few gentle guidelines so every guest enjoys the calm of The Tree.",
+                "hours": [
+                    {"days": "Saturday & Sunday", "time": "12:30 PM – 10:00 PM", "note": "Continuous seating"},
+                    {"days": "Tuesday – Friday", "time": "12:30 – 3:00 PM · 6:00 – 10:00 PM", "note": "Split shifts"},
+                    {"days": "Monday", "time": "Closed", "note": "See you Tuesday"},
+                ],
+                "policies": [
+                    {"title": "Reservation fee", "body": "A fee of ₹300 per guest is collected at the time of booking to confirm your table."},
+                    {"title": "Cancellation & refund", "body": "Cancel anytime before your visit for a 50% refund of the reservation fee."},
+                    {"title": "Table hold", "body": "Tables are held only for your reserved duration. Please arrive on time to enjoy your full seating."},
+                    {"title": "Large groups", "body": "Parties larger than 6 guests require manual confirmation by our team before the table is finalised."},
+                    {"title": "Outside food & décor", "body": "Outside food and any decorations (for celebrations) need prior approval from the café."},
+                    {"title": "Table reassignment", "body": "The café may reassign tables when operationally necessary to seat everyone comfortably."},
+                ]}
     s = await db.settings.find_one({"_id": "global"})
     if not s:
         s = {"_id": "global", **defaults}
@@ -440,7 +469,12 @@ async def public_settings():
             "group_threshold": s["group_threshold"], "menu_enabled": s["menu_enabled"],
             "hero_label": s["hero_label"], "hero_tagline": s["hero_tagline"],
             "gallery_cta_title": s["gallery_cta_title"], "gallery_cta_button": s["gallery_cta_button"],
-            "hero_headline": s["hero_headline"], "hero_intro": s["hero_intro"]}
+            "hero_headline": s["hero_headline"], "hero_intro": s["hero_intro"],
+            "footer_note": s["footer_note"],
+            "contact_heading": s["contact_heading"], "contact_whatsapp": s["contact_whatsapp"],
+            "contact_phone": s["contact_phone"], "contact_email": s["contact_email"],
+            "contact_address": s["contact_address"], "policies_intro": s["policies_intro"],
+            "hours": s["hours"], "policies": s["policies"]}
 
 @api_router.get("/booking-window")
 async def booking_window():

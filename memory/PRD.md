@@ -33,5 +33,17 @@ Mobile-first, premium, calm web app to reserve tables at Café Komorebi. Roles: 
 - P1: Real Razorpay keys + real refund flow; email confirmations (Resend).
 - P2: Cafe timezone (IST) for booking window; reservations date/status indexes; protect seeded accounts from deletion; parallel/real-time table map on admin.
 
-## Next Tasks
-- Await user review; wire real Razorpay when keys available.
+## Implemented (2026-08-27)
+- App renamed to "The Tree"; split Users/Staff vs Customers admin lists; occasion approval now only when "extra service" checked.
+- **Website Content CMS complete**: Owner can edit from Owner Dashboard > Settings — hero label/tagline/headline/intro, gallery CTA, footer note, and NEW: Contact & WhatsApp (heading, number, phone, email, address), Opening hours cards (add/remove/edit), Reservation policies (intro + add/remove/edit policy cards). All persist via PUT /api/admin/settings and render on Landing, Policies, and embedded booking policies.
+- **WhatsApp QR**: footer shows "Chat with us" button (wa.me/<contact_whatsapp>) + scannable QR image; number editable via CMS (default 919148271005).
+- Tested: iteration_11 — 6/6 backend CMS tests + frontend flows 100%, no defects.
+
+## Next Tasks (backlog)
+- P0: Tuesday 9 AM reminder if weekly menu not uploaded (scheduled task).
+- P1: Table photo preview on booking confirmation.
+- P1: Featured "chef's pick" dish spotlight.
+- P2: Editable section headers (e.g. "Our tables", "Menu").
+- P1: Live Razorpay integration + real refund flow (currently MOCKED).
+- Cleanup: remove leftover test_user_*@example.com accounts from Customers list.
+- Refactor: split server.py (~1080 lines) into routers.

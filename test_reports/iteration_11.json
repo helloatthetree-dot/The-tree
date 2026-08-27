@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 11 CMS testing — Owner-editable Contact/WhatsApp, Hours, and Policies. Backend: wrote /app/backend/tests/test_cms_contact_hours_policies.py (6 tests, all passing). Verified GET /api/settings/public returns new CMS fields (contact_heading, contact_whatsapp=919148271005, contact_phone/email/address, policies_intro, hours[], policies[]). Verified PUT /api/admin/settings is owner-only (admin → 403) and persists contact block, hours list, policies list + policies_intro; every persisted value is retrievable via /settings/public. Frontend: verified Landing.js renders WhatsApp CTA data-testid='whatsapp-link' → https://wa.me/919148271005 and QR image data-testid='whatsapp-qr' with matching URL, plus hours strip from site.hours. /policies renders CMS policies (Reservation window, Group threshold, …) and policies_intro. Owner logged in via UI, opened /admin Settings tab: all required data-testids present (setting-contact-heading/whatsapp/phone/email/address, setting-policies-intro, add-hours-btn, hours-days-0, add-policy-btn, policy-title-0, save-settings-btn). Edited contact_heading → 'Settings saved' toast appeared and /api/settings/public reflected the new value. Restored contact_heading back to 'Reach us on WhatsApp' via authenticated PUT. All backend & UI checks passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_cms_contact_hours_policies.py",
+    "/app/test_reports/pytest/iteration_11_cms.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SettingsInput uses Optional[List[dict]] for hours/policies (untyped dict). Consider Pydantic sub-models (HoursEntry{days,time,note}, PolicyEntry{title,body}) to validate shape at the API boundary instead of trusting client payloads.",
+    "QR is served by third-party api.qrserver.com. If offline/blocked, image will 404. Consider serving a locally-generated QR (e.g., qrcode lib) as a fallback or using an <img onError> swap.",
+    "contact_whatsapp input strips non-digits — good, but there is no length/E.164 validation; entering '1' will still be accepted and produce a bad wa.me link. Add min-length or regex.",
+    "get_settings() self-heals defaults, but new CMS fields only backfill on read; a settings doc created before the CMS change may already exist with missing keys — verified this path works via /settings/public. Consider a one-time migration for cleanliness.",
+    "PoliciesPage relies on /settings/public keys existing; if a future PUT accidentally sets policies=[] the page will render empty. Consider falling back to defaults when list is empty.",
+    "server.py is now ~1080+ lines — splitting into routers (auth/reservations/menu/events/cms) still recommended (carried over from iter 10)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_cms_contact_hours_policies.py (new — 6 tests)"
+  ],
+  "success_rate": {"backend": "100% (6/6 new CMS tests)", "frontend": "100% (landing WA link+QR, hours strip, policies page CMS cards, owner settings UI incl. persistence + toast)"},
+  "test_credentials": "Owner sabnamrajoria@gmail.com/Owner@123 (working). Login response field is 'access_token'.",
+  "seed_data_creation": "None. All PUTs made during tests were restored: contact block, hours (Sat&Sun / Tue-Fri / Monday), and policies (6 default cards). Final /settings/public confirms contact_heading='Reach us on WhatsApp', contact_whatsapp='919148271005', hours=3, policies=6.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "CMS feature is fully wired end-to-end (backend PUT/GET + frontend Landing/Policies/AdminDashboard). test_cms_contact_hours_policies.py covers the surface. Use it as the regression suite for future CMS changes. Note: login token JSON field is 'access_token' (NOT 'token'). WhatsApp default is 919148271005. QR uses third-party api.qrserver.com — flag if that URL blocks in future.",
+  "rca of the issue": "N/A — no defects found for iteration 11."
+}
