@@ -274,6 +274,7 @@ export default function AdminDashboard() {
             <TabsContent value="settings" className="mt-6 space-y-6">
               <SettingsManager settings={settings} onSaved={setSettings} />
               <MenuManager />
+              <EventsManager />
               <GalleryManager />
               <HolidaysManager holidays={holidays} reload={() => api.get("/holidays").then((r) => setHolidays(r.data))} />
               <UsersManager users={users} me={user} reload={() => api.get("/admin/users").then((r) => setUsers(r.data))} />
@@ -616,6 +617,68 @@ function GalleryManager() {
   );
 }
 
+/* ---------- Events Manager ---------- */
+function EventsManager() {
+  const empty = { title: "", description: "", date: today(), image_url: "", active: true };
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState(empty);
+  const [editing, setEditing] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  const load = () => api.get("/admin/events").then((r) => setItems(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    try {
+      if (editing) await api.put(`/admin/events/${editing}`, form);
+      else await api.post("/admin/events", form);
+      toast.success("Event saved");
+      setOpen(false); setForm(empty); setEditing(null); load();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const del = async (id) => { try { await api.delete(`/admin/events/${id}`); toast.success("Event removed"); load(); } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); } };
+
+  return (
+    <div className="rounded-2xl bg-white hairline p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-display text-2xl flex items-center gap-2"><CalendarDays size={22} className="text-komorebi-green" /> Upcoming events</h3>
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setForm(empty); setEditing(null); } }}>
+          <DialogTrigger asChild>
+            <button data-testid="add-event-btn" className="rounded-full bg-komorebi-green text-white px-4 py-2 text-sm flex items-center gap-1"><Plus size={15} /> Add event</button>
+          </DialogTrigger>
+          <DialogContent className="rounded-3xl">
+            <DialogHeader><DialogTitle className="font-display text-2xl">{editing ? "Edit event" : "New event"}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <input data-testid="event-title" placeholder="Event title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+              <input type="date" data-testid="event-date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+              <textarea data-testid="event-description" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none min-h-[70px]" />
+              <ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} kind="event" label="Event photo" testid="event-image-upload" />
+              <label className="flex items-center gap-2 text-sm"><Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} /> Visible</label>
+            </div>
+            <DialogFooter><button data-testid="save-event-btn" onClick={save} className="rounded-full bg-komorebi-green text-white px-6 py-2.5">Save event</button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div className="space-y-2">
+        {items.length === 0 ? <p className="text-komorebi-muted text-sm">No events yet.</p> :
+          items.map((e) => (
+            <div key={e.id} className="rounded-xl bg-komorebi-bg hairline p-3 flex items-center gap-3">
+              {e.image_url && <img src={resolveImg(e.image_url)} alt="" className="h-12 w-12 rounded-lg object-cover hairline shrink-0" />}
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-komorebi-ink truncate">{e.title} {!e.active && <span className="text-xs text-komorebi-muted">(hidden)</span>}</p>
+                <p className="text-xs text-komorebi-muted truncate">{e.date}{e.description ? ` · ${e.description}` : ""}</p>
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={() => { setForm({ title: e.title, description: e.description || "", date: e.date, image_url: e.image_url || "", active: e.active }); setEditing(e.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
+                <button onClick={() => del(e.id)} className="rounded-full hairline bg-white text-komorebi-danger px-3 py-1.5"><Trash2 size={15} /></button>
+              </div>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Menu Manager ---------- */
 function MenuManager() {
   const empty = { name: "", description: "", price: 300, category: "Mains", image_url: "", active: true };
@@ -667,7 +730,19 @@ function MenuManager() {
           </DialogContent>
         </Dialog>
       </div>
-      <p className="text-sm text-komorebi-muted mb-4">Toggle the whole menu section on the homepage from Reservation rules above. Photos are optional.</p>
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <p className="text-sm text-komorebi-muted">Import the week's menu from a CSV/Excel file (columns: name, description, price, category). Photos optional. Uploading replaces the current menu.</p>
+        <label data-testid="menu-upload-file" className="cursor-pointer rounded-full hairline bg-white px-4 py-2 text-sm flex items-center gap-1.5 hover:bg-komorebi-bg shrink-0">
+          <UtensilsCrossed size={14} /> Upload CSV/Excel
+          <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={async (e) => {
+            const f = e.target.files?.[0]; if (!f) return;
+            const fd = new FormData(); fd.append("file", f);
+            try { const { data } = await api.post("/admin/menu/upload", fd); toast.success(`Imported ${data.count} items`); load(); }
+            catch (err) { toast.error(formatApiError(err.response?.data?.detail) || "Import failed"); }
+            finally { e.target.value = ""; }
+          }} />
+        </label>
+      </div>
       <div className="grid md:grid-cols-2 gap-3">
         {items.length === 0 ? <p className="text-komorebi-muted text-sm">No menu items yet.</p> :
           items.map((m) => (
@@ -696,43 +771,50 @@ function UsersManager({ users, me, reload }) {
   const create = async () => { try { await api.post("/admin/users", form); toast.success("Staff account created"); setOpen(false); setForm({ name: "", email: "", password: "", role: "admin" }); reload(); } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); } };
   const setRole = async (id, role) => { await api.put(`/admin/users/${id}/role`, { role }); toast.success("Role updated"); reload(); };
   const del = async (id) => { try { await api.delete(`/admin/users/${id}`); toast.success("User removed"); reload(); } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); } };
-  return (
-    <div className="rounded-2xl bg-white hairline p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-display text-2xl flex items-center gap-2"><UserCog size={22} className="text-komorebi-green" /> Users & staff</h3>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><button data-testid="add-staff-btn" className="rounded-full bg-komorebi-green text-white px-4 py-2 text-sm flex items-center gap-1"><Plus size={15} /> Add staff</button></DialogTrigger>
-          <DialogContent className="rounded-3xl">
-            <DialogHeader><DialogTitle className="font-display text-2xl">New staff account</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <input data-testid="staff-name" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
-              <input data-testid="staff-email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
-              <input data-testid="staff-password" type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                <SelectTrigger data-testid="staff-role" className="rounded-xl bg-komorebi-bg py-6"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <DialogFooter><button data-testid="save-staff-btn" onClick={create} className="rounded-full bg-komorebi-green text-white px-6 py-2.5">Create</button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+  const staff = users.filter((u) => u.role !== "customer");
+  const customers = users.filter((u) => u.role === "customer");
+  const Row = (u) => (
+    <div key={u.id} className="rounded-xl bg-komorebi-bg hairline p-3 flex justify-between items-center gap-3">
+      <div className="min-w-0">
+        <p className="font-medium text-komorebi-ink truncate">{u.name} <span className="text-xs text-komorebi-muted">· {u.email}</span></p>
       </div>
-      <div className="space-y-2 max-h-96 overflow-y-auto">
-        {users.map((u) => (
-          <div key={u.id} className="rounded-xl bg-komorebi-bg hairline p-3 flex justify-between items-center gap-3">
-            <div className="min-w-0">
-              <p className="font-medium text-komorebi-ink truncate">{u.name} <span className="text-xs text-komorebi-muted">· {u.email}</span></p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={u.role} onValueChange={(v) => setRole(u.id, v)}>
-                <SelectTrigger className="w-36 rounded-lg bg-white text-xs h-9"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="customer">Customer</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent>
-              </Select>
-              {u.id !== me.id && <button onClick={() => del(u.id)} className="text-komorebi-danger"><Trash2 size={16} /></button>}
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center gap-2">
+        <Select value={u.role} onValueChange={(v) => setRole(u.id, v)}>
+          <SelectTrigger className="w-36 rounded-lg bg-white text-xs h-9"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="customer">Customer</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent>
+        </Select>
+        {u.id !== me.id && <button onClick={() => del(u.id)} className="text-komorebi-danger"><Trash2 size={16} /></button>}
       </div>
     </div>
+  );
+  return (
+    <>
+      <div className="rounded-2xl bg-white hairline p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-display text-2xl flex items-center gap-2"><UserCog size={22} className="text-komorebi-green" /> Staff & admins</h3>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><button data-testid="add-staff-btn" className="rounded-full bg-komorebi-green text-white px-4 py-2 text-sm flex items-center gap-1"><Plus size={15} /> Add staff</button></DialogTrigger>
+            <DialogContent className="rounded-3xl">
+              <DialogHeader><DialogTitle className="font-display text-2xl">New staff account</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <input data-testid="staff-name" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+                <input data-testid="staff-email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+                <input data-testid="staff-password" type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
+                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+                  <SelectTrigger data-testid="staff-role" className="rounded-xl bg-komorebi-bg py-6"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="super_admin">Super Admin</SelectItem></SelectContent>
+                </Select>
+              </div>
+              <DialogFooter><button data-testid="save-staff-btn" onClick={create} className="rounded-full bg-komorebi-green text-white px-6 py-2.5">Create</button></DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+        <div className="space-y-2">{staff.length ? staff.map(Row) : <p className="text-komorebi-muted text-sm">No staff yet.</p>}</div>
+      </div>
+      <div className="rounded-2xl bg-white hairline p-6">
+        <h3 className="font-display text-2xl flex items-center gap-2 mb-4"><Users size={22} className="text-komorebi-green" /> Customers ({customers.length})</h3>
+        <div className="space-y-2 max-h-96 overflow-y-auto">{customers.length ? customers.map(Row) : <p className="text-komorebi-muted text-sm">No customers yet.</p>}</div>
+      </div>
+    </>
   );
 }

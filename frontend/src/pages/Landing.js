@@ -44,55 +44,19 @@ function TiltImage({ src, label, tagline }) {
   );
 }
 
-const zones = [
-  { name: "Sakura", zone: "Indoor", seats: "2", x: "6%", y: "12%" },
-  { name: "Bamboo", zone: "Indoor", seats: "4", x: "34%", y: "30%" },
-  { name: "Zen Hall", zone: "Indoor", seats: "8", x: "8%", y: "56%" },
-  { name: "Garden", zone: "Outdoor", seats: "2", x: "62%", y: "16%" },
-  { name: "Terrace", zone: "Outdoor", seats: "6", x: "68%", y: "58%" },
-];
-
-function TableMap() {
-  return (
-    <div className="relative w-full aspect-[4/3] rounded-3xl hairline bg-komorebi-bg2 overflow-hidden">
-      <div className="absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 30% 20%, rgba(255,244,214,0.6), transparent 55%)" }} />
-      <span className="absolute top-4 left-4 text-xs uppercase tracking-[0.2em] text-komorebi-muted">Indoor</span>
-      <span className="absolute top-4 right-4 text-xs uppercase tracking-[0.2em] text-komorebi-clay">Outdoor</span>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 h-[80%] w-px bg-komorebi-border" />
-      {zones.map((z, i) => (
-        <motion.div
-          key={z.name}
-          initial={{ opacity: 0, y: 14, scale: 0.9 }}
-          whileInView={{ opacity: 1, y: 0, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: i * 0.12, type: "spring", stiffness: 140, damping: 14 }}
-          whileHover={{ y: -6 }}
-          style={{ left: z.x, top: z.y }}
-          className={`absolute rounded-2xl px-4 py-3 shadow-[0_16px_30px_-18px_rgba(44,42,40,0.5)] cursor-default ${
-            z.zone === "Outdoor" ? "bg-komorebi-clay/15 border border-komorebi-clay/40" : "bg-white border border-komorebi-border"
-          }`}
-        >
-          <p className="font-display text-lg leading-none text-komorebi-ink">{z.name}</p>
-          <p className="text-[11px] text-komorebi-muted mt-1">{z.seats} seats · {z.zone}</p>
-        </motion.div>
-      ))}
-    </div>
-  );
-}
-
 export default function Landing() {
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, -60]);
   const [gallery, setGallery] = useState([]);
   const [menu, setMenu] = useState({ enabled: true, items: [] });
-  const [publicTables, setPublicTables] = useState([]);
+  const [events, setEvents] = useState([]);
   const [site, setSite] = useState({ hero_label: "Now serving", hero_tagline: "Afternoon light & golden evenings" });
 
   useEffect(() => {
     window.scrollTo(0, 0);
     api.get("/gallery").then((r) => setGallery(r.data)).catch(() => {});
     api.get("/menu").then((r) => setMenu(r.data)).catch(() => {});
-    api.get("/tables/public").then((r) => setPublicTables(r.data)).catch(() => {});
+    api.get("/events").then((r) => setEvents(r.data)).catch(() => {});
     api.get("/settings/public").then((r) => setSite(r.data)).catch(() => {});
   }, []);
 
@@ -157,67 +121,18 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Table map + story */}
-      <section className="max-w-7xl mx-auto px-5 md:px-8 py-16 grid lg:grid-cols-2 gap-14 items-center">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">The room</p>
-          <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Indoor calm, garden air.</h2>
-          <p className="mt-5 text-komorebi-ink2 leading-relaxed max-w-md">
-            Choose a quiet window seat in the Sakura corner, gather friends at the Bamboo tables, or dine beneath the
-            maple on the garden terrace. We assign the right table for your party automatically.
-          </p>
-          <div className="mt-8 grid grid-cols-2 gap-4 max-w-sm">
-            <div className="rounded-xl bg-white hairline p-4">
-              <MapPin size={18} strokeWidth={1.5} className="text-komorebi-green" />
-              <p className="font-display text-2xl mt-2">8 tables</p>
-              <p className="text-sm text-komorebi-muted">Indoor & outdoor</p>
-            </div>
-            <div className="rounded-xl bg-white hairline p-4">
-              <ShieldCheck size={18} strokeWidth={1.5} className="text-komorebi-green" />
-              <p className="font-display text-2xl mt-2">₹300</p>
-              <p className="text-sm text-komorebi-muted">per guest, 50% refundable</p>
-            </div>
-          </div>
-        </div>
-        <TableMap />
-      </section>
-
-      {/* Our tables */}
-      {publicTables.length > 0 && (
-        <section className="max-w-7xl mx-auto px-5 md:px-8 py-16">
-          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Where you'll sit</p>
-          <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Our tables</h2>
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-5">
-            {publicTables.map((t, i) => (
-              <motion.div
-                key={t.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                transition={{ delay: (i % 4) * 0.08, duration: 0.6 }}
-                className="rounded-2xl bg-white hairline overflow-hidden lift"
-              >
-                {t.image_url ? (
-                  <img src={t.image_url.startsWith("http") ? t.image_url : `${BACKEND}${t.image_url}`} alt={t.name} className="w-full h-40 object-cover" />
-                ) : (
-                  <div className={`w-full h-40 grid place-items-center ${t.zone === "outdoor" ? "bg-gradient-to-br from-komorebi-clay/20 to-komorebi-green/10" : "bg-gradient-to-br from-komorebi-green/15 to-komorebi-bg2"}`}>
-                    <span className="font-display text-2xl text-komorebi-green/50">{t.zone === "outdoor" ? "Garden" : "Indoor"}</span>
-                  </div>
-                )}
-                <div className="p-4">
-                  <p className="font-display text-xl text-komorebi-ink">{t.name}</p>
-                  <p className="text-sm text-komorebi-muted mt-0.5">{t.capacity} seats · {t.zone}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Menu showcase */}
+      {/* Menu highlight */}
       {menu.enabled && menu.items.length > 0 && (
         <section className="max-w-7xl mx-auto px-5 md:px-8 py-16">
-          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Taste</p>
-          <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">From our kitchen</h2>
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Taste</p>
+              <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Menu</h2>
+            </div>
+            <Link to="/menu" data-testid="home-menu-link" className="inline-flex items-center gap-2 rounded-full bg-komorebi-green text-white px-6 py-3 text-sm hover:bg-komorebi-greenDark transition-colors">View full menu <ArrowRight size={16} strokeWidth={1.5} /></Link>
+          </div>
           <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {menu.items.map((m, i) => (
+            {menu.items.slice(0, 3).map((m, i) => (
               <motion.div
                 key={m.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                 transition={{ delay: (i % 3) * 0.08, duration: 0.6 }}
@@ -237,6 +152,31 @@ export default function Landing() {
                   </div>
                   {m.category && <span className="text-[11px] uppercase tracking-wide text-komorebi-muted">{m.category}</span>}
                   {m.description && <p className="text-sm text-komorebi-ink2 mt-2 leading-relaxed">{m.description}</p>}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Upcoming events */}
+      {events.length > 0 && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 py-16" id="events">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">What's on</p>
+              <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Upcoming events</h2>
+            </div>
+            <Link to="/events" className="text-sm text-komorebi-green underline underline-offset-4 hover:text-komorebi-greenDark">All events</Link>
+          </div>
+          <div className="mt-8 grid md:grid-cols-3 gap-5">
+            {events.slice(0, 3).map((e, i) => (
+              <motion.div key={e.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (i % 3) * 0.08, duration: 0.6 }} className="rounded-2xl bg-white hairline overflow-hidden lift">
+                {e.image_url ? <img src={e.image_url.startsWith("http") ? e.image_url : `${BACKEND}${e.image_url}`} alt={e.title} className="w-full h-40 object-cover" /> : <div className="w-full h-40 bg-gradient-to-br from-komorebi-clay/15 to-komorebi-green/10 grid place-items-center"><span className="font-display text-2xl text-komorebi-clay/50">Komorebi</span></div>}
+                <div className="p-5">
+                  <p className="text-xs uppercase tracking-wide text-komorebi-clay">{e.date}</p>
+                  <h3 className="font-display text-2xl text-komorebi-ink mt-1">{e.title}</h3>
+                  {e.description && <p className="text-sm text-komorebi-ink2 mt-2 leading-relaxed">{e.description}</p>}
                 </div>
               </motion.div>
             ))}
@@ -270,8 +210,19 @@ export default function Landing() {
         </motion.div>
       </section>
 
-      <footer className="border-t border-komorebi-border py-10 text-center text-sm text-komorebi-muted">
-        Café Komorebi · 木漏れ日 · Open Tuesday to Sunday
+      <footer className="border-t border-komorebi-border py-12 text-center" id="contact">
+        <Link to="/book" data-testid="footer-start-booking" className="inline-flex items-center gap-2 rounded-full bg-komorebi-green text-white px-7 py-3 text-sm font-medium hover:bg-komorebi-greenDark transition-colors">
+          Start booking <ArrowRight size={16} strokeWidth={1.5} />
+        </Link>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <p className="text-xs uppercase tracking-[0.2em] text-komorebi-muted">Reach us on WhatsApp</p>
+          <a href="https://wa.me/919000012345" target="_blank" rel="noreferrer" data-testid="whatsapp-link" className="inline-flex items-center gap-2 rounded-full bg-[#25D366] text-white px-6 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.945C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zM6.597 20.13c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.978-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.767.967-.94 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.019-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.099-.198.05-.372-.025-.521-.074-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
+            Chat with us
+          </a>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https://wa.me/919000012345" alt="WhatsApp QR code" data-testid="whatsapp-qr" className="mt-2 rounded-xl hairline bg-white p-1" width="120" height="120" />
+        </div>
+        <p className="mt-8 text-sm text-komorebi-muted">Café Komorebi · 木漏れ日 · Open Tuesday to Sunday</p>
       </footer>
     </div>
   );

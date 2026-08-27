@@ -13,6 +13,8 @@ export default function Navbar() {
   const nav = [
     { to: "/", label: "Home" },
     { to: "/book", label: "Reserve" },
+    { to: "/menu", label: "Menu" },
+    { to: "/events", label: "Events" },
     { to: "/policies", label: "Policies" },
   ];
 
@@ -29,7 +31,7 @@ export default function Navbar() {
             <Coffee strokeWidth={1.5} size={18} />
           </span>
           <span className="font-display text-2xl leading-none tracking-tight text-komorebi-ink">
-            Komorebi
+            The Tree
           </span>
         </Link>
 

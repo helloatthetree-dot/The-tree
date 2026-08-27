@@ -1,0 +1,46 @@
+{
+  "summary": "Backend + frontend testing for iteration 10 (booking window 2 weeks, IST past-slot filter, party-size duration, 7 named tables, dietary/special-service approval toggles, menu CSV upload, events CRUD, /menu + /events pages, homepage Menu highlight & Upcoming events, footer WhatsApp+QR). Wrote /app/backend/tests/test_iteration10_features.py (19 tests, 18 passed / 1 skipped for 7+ party depending on slot capacity). Ran regression suite backend_test.py — 2 stale assertions (>=8 tables) fixed to >=7 (new seed is 7 named tables), then 42 passed / 1 skipped. Menu default 6 items was restored (upload test restores in teardown). Frontend browser test verified: /menu categorized menu, /events cards, nav Menu+Events links, homepage Menu highlight (home-menu-link), Upcoming events section, footer footer-start-booking + whatsapp-link (wa.me/919000012345) + whatsapp-qr img, BookingPage fee-info, cancellation-policy, dietary-yes/no toggle + dietary-note reveal, special-service-toggle appears only after occasion selected, 15-day date strip. HOWEVER: 'Our tables' section (labeled 'The room / Indoor calm, garden air.') is STILL present on the homepage with hardcoded OLD table names (Sakura, Bamboo, Zen Hall, Garden, Terrace) and '8 tables' text — this contradicts the iteration requirement and the current DB seed of 7 named tables (Spicy/Umami/Salty/Tangy/Fruity/Malty/Smoky).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/booking-window", "issue": "Window is start=today, end=today+15 (inclusive of 15 days: today..today+14 since bookable is start<=d<end). Review request text says '14 days bookable' — off-by-one vs. the phrase, but matches the explicit 'end=today+15 days' spec. Not a bug, just a doc/spec ambiguity to confirm."},
+      {"endpoint": "_seed_menu / _seed_events", "issue": "Guarded by count!=0; if items are individually deleted the seed will not self-heal. Consider upsert-by-name. Same finding as iteration 9."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Landing.js — 'The room / Indoor calm, garden air.' section (lines ~160-183)", "issue": "Old standalone 'Our tables' section was NOT removed as required by this iteration. It still renders a hardcoded TableMap with names Sakura / Bamboo / Zen Hall / Garden / Terrace and copy referencing '8 tables' — none of which exist in the current DB (seed is 7 named tables Spicy/Umami/Salty/Tangy/Fruity/Malty/Smoky). Users see stale content that does not match reality.", "selector": "section containing 'Indoor calm, garden air.'", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration10_features.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration_10_new.xml",
+    "/app/test_reports/pytest/iteration_10_regression.xml"
+  ],
+  "action_items": [
+    "Remove the 'The room / Indoor calm, garden air.' section from Landing.js (lines ~160-183) OR replace it with a section that reads the real tables from GET /api/tables/public (Spicy/Umami/Salty/Tangy/Fruity/Malty/Smoky, 7 tables) — currently it contradicts both the iteration spec and reality.",
+    "Optional: clarify booking-window spec — is bookable range 14 days (today..today+13) or 15 days (today..today+14)? Backend currently allows the latter.",
+    "Optional: convert _seed_menu / _seed_events / _seed_tables to upsert-by-name so accidental deletions self-heal on restart."
+  ],
+  "critical_code_review_comments": [
+    "Duration semantics are cleanly party-based (party_duration) and reservations store duration_minutes explicitly — good; _table_is_free correctly uses each reservation's own duration for overlap checks.",
+    "Allocation cascade verified: 2-guest bookings fall back from 2-seaters to larger tables when 2-seaters are full (test_allocation_cascades_to_larger_tables).",
+    "needs_approval logic is correct: >group_threshold (strict >), or (special_needs_approval AND occasion != 'None'), or has_dietary, or (occasion != 'None' AND special_service). Note this means ANY special_occasion (even without special_service) triggers approval as long as special_needs_approval=True (default). Confirm this is intended — the review description implies only 'special_occasion + special_service=true' should require approval, but the code also flips it on for any occasion when special_needs_approval is on.",
+    "Landing.js still hardcodes old table showcase — should either be removed or read from /api/tables/public.",
+    "server.py is ~1080 lines — continues to grow; splitting into modules (auth/reservations/menu/events/admin) is increasingly warranted."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (updated 2 stale >=8 assertions to >=7 to match new 7-table seed)",
+    "/app/backend/tests/test_iteration10_features.py (new — 19 tests for iteration 10 features)"
+  ],
+  "success_rate": {"backend": "100% (60/60 executed, 2 skipped)", "frontend": "~92% — all iteration-10 UI hooks & pages work; 1 HIGH-priority regression (obsolete 'Our tables' section not removed)"},
+  "test_credentials": "Owner sabnamrajoria@gmail.com/Owner@123, Admin admin@komorebi.cafe/Admin@123, Customer guest@komorebi.cafe/Guest@123 — all working.",
+  "seed_data_creation": "Menu CSV upload test replaces all items with 2 TEST_ rows, then restores 6 default items in finally block. Events CRUD test deletes any TEST_evt_1 rows it creates. Reservation flow tests cancel each created reservation. No stray TEST_ data left behind.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_iteration10_features.py covers this iteration's new surface (booking window / IST past-slot filter / 7 named tables / party-size duration cascade / dietary+service approval / menu CSV upload / events CRUD). backend_test.py is the regression suite with updated 7-table assertions. Frontend has one outstanding HIGH bug: Landing.js still renders the old 'Our tables' section with hardcoded stale names — E1 needs to delete lines ~160-183 or rewire it to fetch /api/tables/public.",
+  "rca of the issue": "'Our tables' section not removed: E1 added the Menu highlight and moved things around in Landing.js but left the 'The room / Indoor calm, garden air.' block (lines 160-183) untouched. It contains a TableMap sub-component with hardcoded old table constants (Sakura/Bamboo/Zen Hall/Garden/Terrace at Landing.js:48-52). Reproduction: open /  → scroll past hero → the second section shows old table names and '8 tables'. Mitigation: delete that <section> block and the associated hardcoded array + TableMap component (or refactor TableMap to fetch /api/tables/public and remove the 'Our tables' framing to match the spec)."
+}

@@ -165,12 +165,20 @@ class TableInput(BaseModel):
     active: bool = True
     notes: Optional[str] = ""
     image_url: Optional[str] = ""
+    duration_minutes: int = 120
 
 class MenuItemInput(BaseModel):
     name: str
     description: Optional[str] = ""
     price: int
     category: Optional[str] = "Mains"
+    image_url: Optional[str] = ""
+    active: bool = True
+
+class EventInput(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    date: str
     image_url: Optional[str] = ""
     active: bool = True
 
@@ -184,6 +192,9 @@ class ReservationInput(BaseModel):
         "None", "Birthday", "Anniversary", "Date Night",
         "Family Gathering", "Business Meeting", "Celebration", "Other"
     ] = "None"
+    special_service: bool = False
+    has_dietary: bool = False
+    dietary_note: Optional[str] = ""
     policies_accepted: bool = False
 
 class WaitlistInput(BaseModel):
@@ -279,22 +290,19 @@ def generate_slots(d: date, hold_minutes: int) -> List[str]:
             t += SLOT_INTERVAL
     return slots
 
+def party_duration(people: int) -> int:
+    """Reserved duration is based on the party size (a 2-seater booking keeps its 2h even if seated at a bigger table)."""
+    if people <= 4:
+        return 120
+    if people == 5:
+        return 180
+    return 210
+
 def get_booking_window(ref: Optional[datetime] = None):
-    """Weekly window opens every Tuesday 11:30. Returns (start_date, end_date)."""
+    """Guests can book up to 2 weeks in advance, at any time."""
     ref = ref or now_utc()
-    # find most recent Tuesday 11:30
-    today = ref.date()
-    days_since_tue = (today.weekday() - 1) % 7
-    last_tue = today - timedelta(days=days_since_tue)
-    release_dt = datetime.combine(last_tue, time(11, 30), tzinfo=timezone.utc)
-    if ref < release_dt:
-        last_tue = last_tue - timedelta(days=7)
-    # released week covers the 7 days following the release day
-    start = today
-    end = last_tue + timedelta(days=8)  # through the upcoming week
-    if end < start + timedelta(days=1):
-        end = start + timedelta(days=1)
-    return start, end
+    start = ref.date()
+    return start, start + timedelta(days=15)
 
 # ---------------------------------------------------------------------------
 # Availability logic
@@ -316,7 +324,8 @@ def _table_is_free(tid: str, reservations: list, slot_start: int, slot_end: int,
         if r.get("table_id") != tid:
             continue
         r_start = _to_minutes(r["time"])
-        if _slots_overlap(slot_start, slot_end, r_start, r_start + hold_minutes):
+        r_dur = r.get("duration_minutes", hold_minutes)
+        if _slots_overlap(slot_start, slot_end, r_start, r_start + r_dur):
             return False
     return True
 
@@ -454,10 +463,16 @@ async def availability(date: str, people: int = 2):
     start, end = get_booking_window()
     bookable = start <= d_obj < end
 
-    slots = generate_slots(d_obj, s["hold_minutes"])
+    dur = party_duration(people)
+    slots = generate_slots(d_obj, dur)
+    now_ist = now_utc() + timedelta(hours=5, minutes=30)
+    is_today = d_obj == now_ist.date()
+    now_min = now_ist.hour * 60 + now_ist.minute
     out = []
     for t in slots:
-        free = await available_tables_for(date, t, people, s["hold_minutes"])
+        if is_today and _to_minutes(t) <= now_min:
+            continue  # hide past slots for today
+        free = await available_tables_for(date, t, people, dur)
         out.append({"time": t, "available": len(free) > 0, "seats_left": sum(x["capacity"] for x in free[:3])})
     return {"date": date, "open": True, "bookable": bookable, "slots": out,
             "window_start": start.isoformat(), "window_end": end.isoformat()}
@@ -479,22 +494,26 @@ async def create_reservation(body: ReservationInput, user: dict = Depends(get_cu
         raise HTTPException(status_code=400, detail="Café is closed on this day")
     if await is_date_blocked(body.date):
         raise HTTPException(status_code=400, detail="This date is not available")
-    if body.time not in generate_slots(d_obj, s["hold_minutes"]):
+    dur = party_duration(body.people)
+    if body.time not in generate_slots(d_obj, dur):
         raise HTTPException(status_code=400, detail="Invalid time slot")
     if body.people < 1:
         raise HTTPException(status_code=400, detail="Invalid number of people")
 
-    free = await available_tables_for(body.date, body.time, body.people, s["hold_minutes"])
+    free = await available_tables_for(body.date, body.time, body.people, dur)
     if not free:
         raise HTTPException(status_code=409, detail="This slot is full. You can join the waitlist.")
 
-    needs_approval = body.people > s["group_threshold"] or (
-        s["special_needs_approval"] and body.special_occasion != "None")
+    needs_approval = (body.people > s["group_threshold"]
+                      or body.has_dietary
+                      or (body.special_occasion != "None" and body.special_service))
     amount = s["fee_per_person"] * body.people
 
     doc = {
         "user_id": user["id"], "booking_name": body.booking_name, "date": body.date, "time": body.time,
         "people": body.people, "phone": body.phone, "special_occasion": body.special_occasion,
+        "special_service": body.special_service, "has_dietary": body.has_dietary,
+        "dietary_note": body.dietary_note or "", "duration_minutes": dur,
         "status": "pending_payment", "needs_approval": needs_approval, "table_id": None, "table_name": None,
         "amount": amount, "fee_per_person": s["fee_per_person"], "payment_id": None,
         "refund_amount": 0, "created_at": now_utc().isoformat(), "admin_note": "",
@@ -519,7 +538,7 @@ async def pay_reservation(rid: str, user: dict = Depends(get_current_user)):
     if r["needs_approval"]:
         new_status, table_id, table_name = "pending_approval", None, None
     else:
-        free = await available_tables_for(r["date"], r["time"], r["people"], s["hold_minutes"])
+        free = await available_tables_for(r["date"], r["time"], r["people"], r.get("duration_minutes", party_duration(r["people"])))
         if not free:
             new_status, table_id, table_name = "pending_approval", None, None
         else:
@@ -661,7 +680,7 @@ async def approve_reservation(rid: str, body: ApprovalInput, user: dict = Depend
         await db.reservations.update_one({"_id": ObjectId(rid)}, {"$set": {
             "status": "rejected", "admin_note": body.note or "", "refund_amount": refund}})
     else:
-        free = await available_tables_for(r["date"], r["time"], r["people"], s["hold_minutes"])
+        free = await available_tables_for(r["date"], r["time"], r["people"], r.get("duration_minutes", party_duration(r["people"])))
         if not free:
             raise HTTPException(status_code=409, detail="No table available to assign for this slot")
         tb = free[0]
@@ -854,6 +873,36 @@ async def admin_upload(file: UploadFile = File(...), kind: str = Query("misc"), 
     return {"url": f"/api/files/{result['path']}", "path": result["path"]}
 
 # ---------------------------------------------------------------------------
+# Events
+# ---------------------------------------------------------------------------
+@api_router.get("/events")
+async def get_events():
+    rows = await db.events.find({"active": True}).sort("date", 1).to_list(100)
+    return [clean_reservation(e) for e in rows]
+
+@api_router.get("/admin/events")
+async def admin_events(user: dict = Depends(require_staff)):
+    rows = await db.events.find().sort("date", 1).to_list(200)
+    return [clean_reservation(e) for e in rows]
+
+@api_router.post("/admin/events")
+async def create_event(body: EventInput, user: dict = Depends(require_owner)):
+    doc = body.model_dump()
+    doc["created_at"] = now_utc().isoformat()
+    res = await db.events.insert_one(doc)
+    return clean_reservation(await db.events.find_one({"_id": res.inserted_id}))
+
+@api_router.put("/admin/events/{eid}")
+async def update_event(eid: str, body: EventInput, user: dict = Depends(require_owner)):
+    await db.events.update_one({"_id": ObjectId(eid)}, {"$set": body.model_dump()})
+    return clean_reservation(await db.events.find_one({"_id": ObjectId(eid)}))
+
+@api_router.delete("/admin/events/{eid}")
+async def delete_event(eid: str, user: dict = Depends(require_owner)):
+    await db.events.delete_one({"_id": ObjectId(eid)})
+    return {"ok": True}
+
+# ---------------------------------------------------------------------------
 # Public tables (for "our tables" showcase)
 # ---------------------------------------------------------------------------
 @api_router.get("/tables/public")
@@ -893,6 +942,49 @@ async def delete_menu(mid: str, user: dict = Depends(require_owner)):
     await db.menu_items.delete_one({"_id": ObjectId(mid)})
     return {"ok": True}
 
+@api_router.post("/admin/menu/upload")
+async def upload_menu_file(file: UploadFile = File(...), user: dict = Depends(require_owner)):
+    """Replace the menu from an uploaded CSV or Excel file (columns: name, description, price, category, image_url)."""
+    import io, csv
+    fname = (file.filename or "").lower()
+    data = await file.read()
+    rows = []
+    if fname.endswith(".csv"):
+        reader = csv.DictReader(io.StringIO(data.decode("utf-8-sig")))
+        rows = [{(k or "").strip().lower(): v for k, v in r.items()} for r in reader]
+    elif fname.endswith((".xlsx", ".xls")):
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        ws = wb.active
+        it = ws.iter_rows(values_only=True)
+        try:
+            headers = [str(h).strip().lower() if h is not None else "" for h in next(it)]
+        except StopIteration:
+            raise HTTPException(status_code=400, detail="The file is empty")
+        for r in it:
+            rows.append({headers[i]: r[i] for i in range(min(len(headers), len(r)))})
+    else:
+        raise HTTPException(status_code=400, detail="Please upload a .csv or .xlsx file")
+
+    items = []
+    for r in rows:
+        name = str(r.get("name") or "").strip()
+        if not name:
+            continue
+        try:
+            price = int(float(r.get("price") or 0))
+        except (ValueError, TypeError):
+            price = 0
+        items.append({"name": name, "description": str(r.get("description") or "").strip(),
+                      "price": price, "category": (str(r.get("category") or "Mains").strip() or "Mains"),
+                      "image_url": str(r.get("image_url") or "").strip(), "active": True,
+                      "created_at": now_utc().isoformat()})
+    if not items:
+        raise HTTPException(status_code=400, detail="No valid rows found. Required column: name (plus price, description, category)")
+    await db.menu_items.delete_many({})
+    await db.menu_items.insert_many(items)
+    return {"count": len(items)}
+
 # ---------------------------------------------------------------------------
 # Startup seeding
 # ---------------------------------------------------------------------------
@@ -913,21 +1005,21 @@ async def _seed_demo_customer() -> None:
                                    "phone": "+91 90000 12345", "created_at": now_utc().isoformat()})
 
 async def _seed_tables() -> None:
-    if await db.tables.count_documents({}) != 0:
-        return
-    seed_tables = [
-        {"name": "Sakura 1", "capacity": 2, "zone": "indoor", "active": True, "notes": "Window seat"},
-        {"name": "Sakura 2", "capacity": 2, "zone": "indoor", "active": True, "notes": ""},
-        {"name": "Bamboo 1", "capacity": 4, "zone": "indoor", "active": True, "notes": ""},
-        {"name": "Bamboo 2", "capacity": 4, "zone": "indoor", "active": True, "notes": ""},
-        {"name": "Zen Hall", "capacity": 8, "zone": "indoor", "active": True, "notes": "Large groups"},
-        {"name": "Garden 1", "capacity": 2, "zone": "outdoor", "active": True, "notes": "Under the maple"},
-        {"name": "Garden 2", "capacity": 4, "zone": "outdoor", "active": True, "notes": ""},
-        {"name": "Terrace", "capacity": 6, "zone": "outdoor", "active": True, "notes": "Sunset view"},
+    named = [
+        {"name": "Spicy", "capacity": 2, "duration_minutes": 120, "zone": "indoor"},
+        {"name": "Umami", "capacity": 2, "duration_minutes": 120, "zone": "indoor"},
+        {"name": "Salty", "capacity": 4, "duration_minutes": 120, "zone": "indoor"},
+        {"name": "Tangy", "capacity": 4, "duration_minutes": 120, "zone": "indoor"},
+        {"name": "Fruity", "capacity": 6, "duration_minutes": 210, "zone": "outdoor"},
+        {"name": "Malty", "capacity": 6, "duration_minutes": 210, "zone": "outdoor"},
+        {"name": "Smoky", "capacity": 5, "duration_minutes": 180, "zone": "outdoor"},
     ]
-    for t in seed_tables:
-        t["created_at"] = now_utc().isoformat()
-    await db.tables.insert_many(seed_tables)
+    if await db.tables.find_one({"name": "Spicy"}):
+        return
+    await db.tables.delete_many({})
+    for t in named:
+        t.update({"active": True, "notes": "", "image_url": "", "created_at": now_utc().isoformat()})
+    await db.tables.insert_many(named)
 
 async def _seed_menu() -> None:
     if await db.menu_items.count_documents({}) != 0:
@@ -944,6 +1036,19 @@ async def _seed_menu() -> None:
         m["created_at"] = now_utc().isoformat()
     await db.menu_items.insert_many(seed_menu)
 
+async def _seed_events() -> None:
+    if await db.events.count_documents({}) != 0:
+        return
+    base = now_utc().date()
+    seed = [
+        {"title": "Live Jazz & Pour-Over Night", "description": "An evening of slow coffee and live jazz on the terrace.", "date": (base + timedelta(days=6)).isoformat(), "image_url": "", "active": True},
+        {"title": "Matcha Masterclass", "description": "Hands-on ceremonial matcha workshop with our head barista.", "date": (base + timedelta(days=13)).isoformat(), "image_url": "", "active": True},
+        {"title": "Harvest Supper", "description": "A seasonal set menu celebrating the autumn harvest.", "date": (base + timedelta(days=20)).isoformat(), "image_url": "", "active": True},
+    ]
+    for e in seed:
+        e["created_at"] = now_utc().isoformat()
+    await db.events.insert_many(seed)
+
 @app.on_event("startup")
 async def startup():
     try:
@@ -958,6 +1063,7 @@ async def startup():
     await _seed_demo_customer()
     await _seed_tables()
     await _seed_menu()
+    await _seed_events()
     logger.info("Startup seeding complete")
 
 app.include_router(api_router)

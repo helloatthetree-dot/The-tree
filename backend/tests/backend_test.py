@@ -268,7 +268,7 @@ class TestAdmin:
     def test_tables_list(self, admin_token):
         r = requests.get(f"{API}/tables", headers=H(admin_token))
         assert r.status_code == 200
-        assert len(r.json()) >= 8
+        assert len(r.json()) >= 7  # 7 named tables seeded
 
     def test_table_status(self, admin_token):
         d, t = _pick_bookable_date_and_slot()
@@ -376,7 +376,7 @@ class TestPublicTables:
         r = requests.get(f"{API}/tables/public")
         assert r.status_code == 200
         rows = r.json()
-        assert isinstance(rows, list) and len(rows) >= 8
+        assert isinstance(rows, list) and len(rows) >= 7
         for t in rows:
             for k in ("id", "name", "zone", "capacity", "image_url"):
                 assert k in t

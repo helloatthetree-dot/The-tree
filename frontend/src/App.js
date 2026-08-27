@@ -12,6 +12,8 @@ import BookingPage from "./pages/BookingPage";
 import PoliciesPage from "./pages/PoliciesPage";
 import MyReservations from "./pages/MyReservations";
 import AdminDashboard from "./pages/AdminDashboard";
+import MenuPage from "./pages/MenuPage";
+import EventsPage from "./pages/EventsPage";
 
 function Shell({ children }) {
   return (
@@ -72,6 +74,8 @@ function AppRoutes() {
       <Route path="/login" element={<Shell><AuthPage /></Shell>} />
       <Route path="/register" element={<Shell><AuthPage register /></Shell>} />
       <Route path="/policies" element={<Shell><PoliciesPage /></Shell>} />
+      <Route path="/menu" element={<Shell><MenuPage /></Shell>} />
+      <Route path="/events" element={<Shell><EventsPage /></Shell>} />
       <Route
         path="/book"
         element={

@@ -30,7 +30,7 @@ export default function BookingPage() {
   const dates = useMemo(() => {
     const out = [];
     const start = new Date();
-    for (let i = 0; i < 21; i++) {
+    for (let i = 0; i < 15; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       out.push(d);
@@ -44,7 +44,7 @@ export default function BookingPage() {
   const [loadingAvail, setLoadingAvail] = useState(false);
   const [selectedTime, setSelectedTime] = useState(null);
 
-  const [form, setForm] = useState({ booking_name: user?.name || "", phone: user?.phone || "", special_occasion: "None" });
+  const [form, setForm] = useState({ booking_name: user?.name || "", phone: user?.phone || "", special_occasion: "None", special_service: false, has_dietary: false, dietary_note: "" });
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
@@ -70,6 +70,7 @@ export default function BookingPage() {
     try {
       const payload = {
         booking_name: form.booking_name, phone: form.phone, special_occasion: form.special_occasion,
+        special_service: form.special_service, has_dietary: form.has_dietary, dietary_note: form.dietary_note,
         date: iso(selectedDate), time: selectedTime, people, policies_accepted: true,
       };
       const { data } = await api.post("/reservations", payload);
@@ -132,6 +133,9 @@ export default function BookingPage() {
                   <span className="text-sm text-komorebi-warning ml-2">Large group — needs approval</span>
                 )}
               </div>
+              <p data-testid="fee-info" className="mt-4 rounded-xl bg-komorebi-green/8 border border-komorebi-green/20 px-4 py-3 text-sm text-komorebi-ink2">
+                <span className="font-semibold text-komorebi-green">Reservation fee ₹300 per guest</span> — collected now to confirm your table. 50% refundable (see cancellation policy).
+              </p>
             </div>
 
             {/* Date strip */}
@@ -158,6 +162,9 @@ export default function BookingPage() {
                   );
                 })}
               </div>
+              <p data-testid="cancellation-policy" className="mt-3 text-xs text-komorebi-muted">
+                Cancellations 24+ hours before your reservation receive a 50% refund. Same-day cancellations are non-refundable. Closed on Mondays.
+              </p>
             </div>
 
             {/* Time slots */}
@@ -171,7 +178,7 @@ export default function BookingPage() {
                 <p className="mt-6 text-komorebi-danger text-sm">{avail.reason}</p>
               ) : avail && avail.bookable === false ? (
                 <p className="mt-6 text-komorebi-warning text-sm">
-                  Bookings for this date open on Tuesday at 11:30 AM. Please choose a date within the current booking window.
+                  You can book up to 2 weeks in advance. Please choose an earlier date.
                 </p>
               ) : (
                 <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-2.5">
@@ -223,7 +230,37 @@ export default function BookingPage() {
                   </SelectContent>
                 </Select>
                 {form.special_occasion !== "None" && (
-                  <p className="text-xs text-komorebi-warning mt-1.5">Special occasions are confirmed after a quick admin approval.</p>
+                  <label className="mt-2 flex items-center gap-2 text-sm text-komorebi-ink2 cursor-pointer">
+                    <input type="checkbox" data-testid="special-service-toggle" checked={form.special_service} onChange={(e) => setForm({ ...form, special_service: e.target.checked })} className="h-4 w-4 accent-komorebi-green" />
+                    I'd like extra service (decorations, cake, etc.)
+                  </label>
+                )}
+                {form.special_occasion !== "None" && form.special_service && (
+                  <p className="text-xs text-komorebi-warning mt-1.5">Extra-service requests are confirmed after a quick admin approval.</p>
+                )}
+              </div>
+
+              {/* Dietary */}
+              <div>
+                <label className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Any dietary issues?</label>
+                <div className="mt-2 flex gap-2">
+                  {[{ v: false, l: "No" }, { v: true, l: "Yes" }].map((o) => (
+                    <button
+                      key={o.l} type="button" data-testid={`dietary-${o.l.toLowerCase()}`}
+                      onClick={() => setForm({ ...form, has_dietary: o.v })}
+                      className={`rounded-full px-5 py-2 text-sm border transition-colors ${form.has_dietary === o.v ? "bg-komorebi-green text-white border-komorebi-green" : "bg-komorebi-bg border-komorebi-border hover:border-komorebi-green"}`}
+                    >{o.l}</button>
+                  ))}
+                </div>
+                {form.has_dietary && (
+                  <>
+                    <textarea
+                      data-testid="dietary-note" value={form.dietary_note} onChange={(e) => setForm({ ...form, dietary_note: e.target.value })}
+                      placeholder="Please describe the dietary issue (allergies, restrictions…)"
+                      className="mt-2 w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none min-h-[70px]"
+                    />
+                    <p className="text-xs text-komorebi-warning mt-1.5">Dietary requests are confirmed after a quick admin approval.</p>
+                  </>
                 )}
               </div>
             </div>
