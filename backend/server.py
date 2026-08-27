@@ -710,7 +710,7 @@ async def approve_reservation(rid: str, body: ApprovalInput, user: dict = Depend
         raise HTTPException(status_code=404, detail="Reservation not found")
     s = await get_settings()
     if body.action == "reject":
-        refund = round(r["amount"] * s["refund_percent"] / 100) if r.get("payment_id") else 0
+        refund = r["amount"] if r.get("payment_id") else 0
         await db.reservations.update_one({"_id": ObjectId(rid)}, {"$set": {
             "status": "rejected", "admin_note": body.note or "", "refund_amount": refund}})
     else:
