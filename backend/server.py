@@ -9,8 +9,10 @@ import uuid
 import logging
 import jwt
 import bcrypt
+import asyncio
 import requests
-from datetime import datetime, timezone, timedelta, date, time
+import razorpay
+from datetime import datetime, timezone, timedelta, date
 from typing import List, Optional, Annotated, Literal
 
 from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, UploadFile, File, Header, Query
@@ -32,6 +34,34 @@ api_router = APIRouter(prefix="/api")
 
 JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGORITHM = "HS256"
+
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+
+async def create_razorpay_order(amount_rupees: int, rid: str) -> dict:
+    return await asyncio.to_thread(razorpay_client.order.create, {
+        "amount": amount_rupees * 100,
+        "currency": "INR",
+        "payment_capture": 1,
+        "receipt": f"res_{rid}"[:40],
+    })
+
+
+def _verify_signature(order_id: str, payment_id: str, signature: str):
+    razorpay_client.utility.verify_payment_signature({
+        "razorpay_order_id": order_id,
+        "razorpay_payment_id": payment_id,
+        "razorpay_signature": signature,
+    })
+
+
+async def refund_razorpay_payment(payment_id: str, amount_rupees: int) -> dict:
+    return await asyncio.to_thread(razorpay_client.payment.refund, payment_id, {
+        "amount": amount_rupees * 100,
+        "speed": "normal",
+    })
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("komorebi")
@@ -251,6 +281,11 @@ class StaffCreateInput(BaseModel):
 class ApprovalInput(BaseModel):
     action: Literal["approve", "reject"]
     note: Optional[str] = ""
+
+class PaymentVerifyInput(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 # ---------------------------------------------------------------------------
 # Operating hours + slots
@@ -554,21 +589,28 @@ async def create_reservation(body: ReservationInput, user: dict = Depends(get_cu
     }
     res = await db.reservations.insert_one(doc)
     rid = str(res.inserted_id)
-    # mock razorpay order
-    order = {"order_id": f"order_mock_{rid}", "amount": amount * 100, "currency": "INR", "key_id": "rzp_test_mock"}
-    return {"reservation_id": rid, "needs_approval": needs_approval, "amount": amount, "order": order}
+    order = await create_razorpay_order(amount, rid)
+    await db.reservations.update_one({"_id": res.inserted_id}, {"$set": {"razorpay_order_id": order["id"]}})
+    return {"reservation_id": rid, "needs_approval": needs_approval, "amount": amount,
+            "order": {"order_id": order["id"], "amount": order["amount"],
+                      "currency": order["currency"], "key_id": RAZORPAY_KEY_ID}}
 
 @api_router.post("/reservations/{rid}/pay")
-async def pay_reservation(rid: str, user: dict = Depends(get_current_user)):
-    """Mocked payment verification."""
+async def pay_reservation(rid: str, body: PaymentVerifyInput, user: dict = Depends(get_current_user)):
+    """Verify Razorpay payment signature and confirm the reservation."""
     r = await db.reservations.find_one({"_id": ObjectId(rid)})
     if not r or r["user_id"] != user["id"]:
         raise HTTPException(status_code=404, detail="Reservation not found")
     if r["status"] != "pending_payment":
         raise HTTPException(status_code=400, detail="Reservation is not awaiting payment")
 
-    s = await get_settings()
-    payment_id = f"pay_mock_{rid}"
+    try:
+        await asyncio.to_thread(_verify_signature, body.razorpay_order_id,
+                                body.razorpay_payment_id, body.razorpay_signature)
+    except razorpay.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+
+    payment_id = body.razorpay_payment_id
     if r["needs_approval"]:
         new_status, table_id, table_name = "pending_approval", None, None
     else:
@@ -580,8 +622,8 @@ async def pay_reservation(rid: str, user: dict = Depends(get_current_user)):
             new_status, table_id, table_name = "confirmed", str(tb["_id"]), tb["name"]
 
     await db.reservations.update_one({"_id": ObjectId(rid)}, {"$set": {
-        "status": new_status, "payment_id": payment_id, "table_id": table_id, "table_name": table_name,
-        "paid_at": now_utc().isoformat(),
+        "status": new_status, "payment_id": payment_id, "razorpay_order_id": body.razorpay_order_id,
+        "table_id": table_id, "table_name": table_name, "paid_at": now_utc().isoformat(),
     }})
     r = await db.reservations.find_one({"_id": ObjectId(rid)})
     return clean_reservation(r)
@@ -600,10 +642,21 @@ async def cancel_reservation(rid: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Reservation cannot be cancelled")
     s = await get_settings()
     refund = 0
+    refund_id = None
+    refund_status = "none"
     if r.get("payment_id"):
         refund = round(r["amount"] * s["refund_percent"] / 100)
+        if refund > 0:
+            try:
+                rf = await refund_razorpay_payment(r["payment_id"], refund)
+                refund_id = rf.get("id")
+                refund_status = "processed"
+            except Exception as e:
+                logger.error("Refund failed for %s: %s", rid, e)
+                refund_status = "pending"
     await db.reservations.update_one({"_id": ObjectId(rid)}, {"$set": {
-        "status": "cancelled", "refund_amount": refund, "cancelled_at": now_utc().isoformat(),
+        "status": "cancelled", "refund_amount": refund, "refund_id": refund_id,
+        "refund_status": refund_status, "cancelled_at": now_utc().isoformat(),
     }})
     r = await db.reservations.find_one({"_id": ObjectId(rid)})
     return clean_reservation(r)
@@ -710,9 +763,21 @@ async def approve_reservation(rid: str, body: ApprovalInput, user: dict = Depend
         raise HTTPException(status_code=404, detail="Reservation not found")
     s = await get_settings()
     if body.action == "reject":
-        refund = r["amount"] if r.get("payment_id") else 0
+        refund = 0
+        refund_id = None
+        refund_status = "none"
+        if r.get("payment_id"):
+            refund = r["amount"]
+            try:
+                rf = await refund_razorpay_payment(r["payment_id"], refund)
+                refund_id = rf.get("id")
+                refund_status = "processed"
+            except Exception as e:
+                logger.error("Refund failed on reject for %s: %s", rid, e)
+                refund_status = "pending"
         await db.reservations.update_one({"_id": ObjectId(rid)}, {"$set": {
-            "status": "rejected", "admin_note": body.note or "", "refund_amount": refund}})
+            "status": "rejected", "admin_note": body.note or "", "refund_amount": refund,
+            "refund_id": refund_id, "refund_status": refund_status}})
     else:
         free = await available_tables_for(r["date"], r["time"], r["people"], r.get("duration_minutes", party_duration(r["people"])))
         if not free:

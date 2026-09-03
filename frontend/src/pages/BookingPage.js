@@ -23,6 +23,17 @@ function fmt12(t) {
   return `${hh}:${String(m).padStart(2, "0")} ${ap}`;
 }
 
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
+
 export default function BookingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -74,20 +85,59 @@ export default function BookingPage() {
         date: iso(selectedDate), time: selectedTime, people, policies_accepted: true,
       };
       const { data } = await api.post("/reservations", payload);
-      // mock payment
-      toast.loading("Processing payment…", { id: "pay" });
-      const paid = await api.post(`/reservations/${data.reservation_id}/pay`);
-      toast.dismiss("pay");
-      setConfirmation({ ...paid.data, amount: data.amount, needs_approval: data.needs_approval });
+      const order = data.order;
+
+      const ok = await loadRazorpayScript();
+      if (!ok || !window.Razorpay) {
+        setSubmitting(false);
+        return toast.error("Couldn't load the payment window. Check your connection and try again.");
+      }
+
+      const rzp = new window.Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "The Tree",
+        description: `Table reservation · ${people} guest${people > 1 ? "s" : ""}`,
+        order_id: order.order_id,
+        prefill: { name: form.booking_name, contact: form.phone, email: user?.email || "" },
+        theme: { color: "#5c6b4c" },
+        handler: async (resp) => {
+          try {
+            toast.loading("Confirming your booking…", { id: "pay" });
+            const paid = await api.post(`/reservations/${data.reservation_id}/pay`, {
+              razorpay_order_id: resp.razorpay_order_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature,
+            });
+            toast.dismiss("pay");
+            setConfirmation({ ...paid.data, amount: data.amount, needs_approval: data.needs_approval });
+          } catch (e) {
+            toast.dismiss("pay");
+            toast.error(formatApiError(e.response?.data?.detail) || "We couldn't confirm your payment.");
+          } finally {
+            setSubmitting(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setSubmitting(false);
+            toast.info("Payment cancelled — your table isn't reserved yet.");
+          },
+        },
+      });
+      rzp.on("payment.failed", () => {
+        toast.error("Payment failed. Please try again.");
+        setSubmitting(false);
+      });
+      rzp.open();
     } catch (e) {
-      toast.dismiss("pay");
       const status = e.response?.status;
       if (status === 409) {
         setWaitlistOpen(true);
       } else {
         toast.error(formatApiError(e.response?.data?.detail) || e.message);
       }
-    } finally {
       setSubmitting(false);
     }
   };
@@ -307,7 +357,10 @@ export default function BookingPage() {
                 {submitting ? <Loader2 className="animate-spin" size={18} /> : null}
                 Pay ₹{amount} & reserve
               </button>
-              <p className="text-center text-xs text-white/50 mt-3">Secure payment via Razorpay (demo mode)</p>
+              <p data-testid="hold-notice" className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-white/70">
+                <Clock size={13} strokeWidth={1.5} /> Your table is held for 30 minutes after your reserved time.
+              </p>
+              <p className="text-center text-xs text-white/50 mt-2">Secure payment via Razorpay</p>
             </div>
           </div>
         </div>
@@ -342,6 +395,10 @@ export default function BookingPage() {
                   )}
                   <div className="flex justify-between"><span className="text-komorebi-muted">Paid</span><span>₹{confirmation.amount}</span></div>
                 </div>
+                <p className="mt-4 flex items-start gap-1.5 text-left text-xs text-komorebi-ink2 rounded-xl bg-komorebi-clay/10 px-3 py-2.5">
+                  <Clock size={14} strokeWidth={1.5} className="mt-0.5 shrink-0 text-komorebi-clay" />
+                  Please arrive on time — your table will be held for <span className="font-semibold">30 minutes</span> after your reserved time.
+                </p>
                 <button
                   data-testid="confirmation-done" onClick={() => { setConfirmation(null); navigate("/reservations"); }}
                   className="mt-6 w-full rounded-full bg-komorebi-green text-white py-3 font-medium hover:bg-komorebi-greenDark transition-colors"

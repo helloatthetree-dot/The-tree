@@ -101,11 +101,12 @@ export default function MyReservations() {
                       {r.table_name && <span className="flex items-center gap-1.5"><MapPin size={15} strokeWidth={1.5} /> {r.table_name}</span>}
                       <span>₹{r.amount} paid</span>
                     </div>
-                    {r.status === "cancelled" && r.refund_amount > 0 && (
-                      <p data-testid={`refund-${r.id}`} className="text-xs text-komorebi-green mt-2">₹{r.refund_amount} refunded</p>
-                    )}
-                    {r.status === "rejected" && r.refund_amount > 0 && (
-                      <p data-testid={`refund-${r.id}`} className="text-xs text-komorebi-green mt-2">₹{r.refund_amount} refunded in full</p>
+                    {(r.status === "cancelled" || r.status === "rejected") && r.refund_amount > 0 && (
+                      <p data-testid={`refund-${r.id}`} className={`text-xs mt-2 ${r.refund_status === "pending" ? "text-komorebi-clay" : "text-komorebi-green"}`}>
+                        {r.refund_status === "pending"
+                          ? `₹${r.refund_amount} refund is being processed`
+                          : `₹${r.refund_amount} refunded${r.status === "rejected" ? " in full" : ""}`}
+                      </p>
                     )}
                     {r.admin_note && <p className="text-xs text-komorebi-muted mt-2 italic">Note: {r.admin_note}</p>}
                   </div>

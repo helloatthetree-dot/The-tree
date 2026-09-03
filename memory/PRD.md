@@ -33,17 +33,27 @@ Mobile-first, premium, calm web app to reserve tables at Café Komorebi. Roles: 
 - P1: Real Razorpay keys + real refund flow; email confirmations (Resend).
 - P2: Cafe timezone (IST) for booking window; reservations date/status indexes; protect seeded accounts from deletion; parallel/real-time table map on admin.
 
+## Implemented (2026-09-03)
+- **Razorpay LIVE integration (TEST MODE)** — replaces the previous mock:
+  - Booking creates a real Razorpay order (`POST /api/reservations` returns `order_id`/`amount`/`key_id`); frontend opens Razorpay Checkout.
+  - `POST /api/reservations/{id}/pay` verifies the HMAC signature server-side before confirming + assigning a table (invalid signature → 400).
+  - **Auto-refunds via Razorpay API**: customer cancel = 50%, admin reject = 100%. Refund failures no longer block — booking still cancels/rejects and refund is marked `refund_status: pending` for manual retry (returns 200, avoids ingress 502).
+  - Keys in `backend/.env` (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`).
+- "Table held for **30 minutes** after reserved time" notice on booking summary + confirmation dialog.
+- Backend verified 100% (iteration_12): real order, 400 on bad signature, valid-sig confirms, cancel/reject hit real refund API. Frontend checkout opens correctly in test mode; full card-entry happy-path needs **manual UAT** (Razorpay anti-bot blocks headless automation).
+
 ## Implemented (2026-08-27)
-- App renamed to "The Tree"; split Users/Staff vs Customers admin lists; occasion approval now only when "extra service" checked.
-- **Website Content CMS complete**: Owner can edit from Owner Dashboard > Settings — hero label/tagline/headline/intro, gallery CTA, footer note, and NEW: Contact & WhatsApp (heading, number, phone, email, address), Opening hours cards (add/remove/edit), Reservation policies (intro + add/remove/edit policy cards). All persist via PUT /api/admin/settings and render on Landing, Policies, and embedded booking policies.
-- **WhatsApp QR**: footer shows "Chat with us" button (wa.me/<contact_whatsapp>) + scannable QR image; number editable via CMS (default 919148271005).
-- Tested: iteration_11 — 6/6 backend CMS tests + frontend flows 100%, no defects.
+- App renamed to "The Tree"; split Users/Staff vs Customers admin lists; occasion approval only when "extra service" checked.
+- **Website Content CMS**: hero copy, gallery CTA, footer note, Contact & WhatsApp (heading/number/phone/email/address), Opening hours cards, Reservation policies (intro + cards) — all editable from Owner Dashboard, rendered on Landing/Policies/booking.
+- **WhatsApp QR**: footer "Chat with us" button + scannable QR (editable number, default 919148271005).
+- Admin rejection issues full refund; My Reservations surfaces refund amount/status.
 
 ## Next Tasks (backlog)
+- **Manual UAT**: complete a real Razorpay test-card checkout (4111 1111 1111 1111) → confirm booking + real `rfnd_` refund on cancel/reject.
 - P0: Tuesday 9 AM reminder if weekly menu not uploaded (scheduled task).
 - P1: Table photo preview on booking confirmation.
 - P1: Featured "chef's pick" dish spotlight.
-- P2: Editable section headers (e.g. "Our tables", "Menu").
-- P1: Live Razorpay integration + real refund flow (currently MOCKED).
-- Cleanup: remove leftover test_user_*@example.com accounts from Customers list.
-- Refactor: split server.py (~1080 lines) into routers.
+- P2: Editable section headers ("Our tables", "Menu").
+- Go live: swap in Razorpay LIVE keys when ready.
+- Cleanup: remove leftover TEST/test_user reservations & accounts.
+- Refactor: split server.py (~1175 lines) into routers.

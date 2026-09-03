@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 12 — REAL Razorpay integration verified. Backend: created /app/backend/tests/test_razorpay_iteration12.py (5/5 passing). (1) POST /api/reservations returns a REAL Razorpay order — order_id starts with 'order_', key_id='rzp_test_TXVTSspYgv9kpA', amount=people*30000 paise, currency=INR. (2) Invalid razorpay_signature on POST /api/reservations/{rid}/pay -> HTTP 400 'Payment verification failed' AND the reservation stays in 'pending_payment' (verified via /api/reservations/mine). (3) Valid HMAC-SHA256 signature -> reservation becomes 'confirmed' (or 'pending_approval' when needs_approval) with payment_id + razorpay_order_id persisted. (4) Customer cancel on a confirmed reservation calls the REAL Razorpay refund API — with a synthetic pay_TEST id Razorpay responds 'The id provided does not exist' and the backend correctly raises HTTP 502 (backend log shows the real Razorpay error line: 'Refund failed for <rid>: The id provided does not exist'). (5) Admin reject on a 'pending_approval' reservation also calls the REAL Razorpay refund API for the FULL amount and raises 502 on the synthetic id — same live-API code path exercised. Frontend: /book loads for authenticated customer, hold-notice ('Your table is held for 30 minutes after your reserved time.') visible on summary card (verified via data-testid='hold-notice'), Pay ₹600 & reserve button opens the REAL Razorpay checkout iframe (screenshot captured) — the checkout page loads under api.razorpay.com/v1/checkout/public in TEST MODE with the correct order/amount/key. The full card-entry + 3DS 'Success' click through the Razorpay iframe could NOT be reliably driven headless (Razorpay ships anti-automation: PerimeterX / hcaptcha / cross-origin overlay-backdrop intercepts clicks in the Contact Details modal), so the browser-side handler that POSTs to /pay was not executed end-to-end in this run — but the API contract for /pay is fully covered by the backend tests (signed callback == real Razorpay signature format).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/reservations/{rid}/cancel", "issue": "When Razorpay refund fails (5xx / bad id) the backend raises HTTPException(502). The Kubernetes/Cloudflare ingress in front of the preview URL sometimes replaces this JSON 502 with an HTML '502 Bad gateway' page (seen once when calling from outside), which hides the friendly 'Cancelled but refund could not be processed. Please contact the café.' detail from the browser. Consider returning 200 with {status:'cancelled', refund_status:'failed', refund_amount:0} + a toast on the client, so ingress doesn't swallow the response — or 4xx (e.g. 409) which ingress passes through. Same applies to /admin/reservations/{rid}/approval on reject."},
+      {"endpoint": "POST /api/reservations/{rid}/cancel & /admin/.../approval (reject)", "issue": "If Razorpay is unreachable / refund fails, the reservation status is NOT changed to 'cancelled'/'rejected' (because HTTPException is raised BEFORE the update_one). This is safer than partially-cancelling, but the customer/admin now sees the reservation still 'confirmed'/'pending_approval'. Consider a queued-retry or a 'refund_pending' status so the seat isn't held while the café retries the refund manually."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Booking → Razorpay Checkout", "issue": "Razorpay checkout iframe cannot be automated in headless testing (PerimeterX / hCaptcha overlay). Full success handler (POST /pay from window.Razorpay handler) was not executed by the browser in this run. Manual UAT with test card 4111 1111 1111 1111 is still required to fully validate the frontend handler + real 'rfnd_' refund happy-path. Backend contract is proven.", "affected_selectors": ["[data-testid='pay-btn']", "[data-testid='confirmation-done']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_razorpay_iteration12.py",
+    "/app/test_reports/pytest/iteration_12.xml"
+  ],
+  "action_items": [
+    "Manual UAT: log in as guest@komorebi.cafe, /book, pick date/slot, click Pay & reserve, complete Razorpay test-card checkout (4111 1111 1111 1111 / any future expiry / any CVV / Success on OTP page), verify confirmation dialog shows 'Table reserved!' (or 'Awaiting approval') and that /reservations lists payment_id starting 'pay_'. Then cancel and confirm refund_amount and a real 'rfnd_' refund_id appears in the UI (data-testid='refund-<id>').",
+    "Consider softening the 502 on refund-failure in cancel/reject so the ingress doesn't replace it with a generic HTML error, and so the reservation can still transition state with a 'refund_pending' flag for retry."
+  ],
+  "critical_code_review_comments": [
+    "server.py refund_razorpay_payment is called inside the same request as the state transition; a Razorpay outage now blocks cancellation. Suggest: mark 'cancel_requested' first, then attempt refund, then finalize — with a retry job.",
+    "PaymentVerifyInput has no length/prefix validation for razorpay_order_id/razorpay_payment_id. Adding min_length + regex ('^order_', '^pay_') would give better 400s than a signature-verify failure.",
+    "server.py is now ~1175 lines (grew again this iteration) — router split still recommended (auth / reservations+payments / menu / events / cms / admin).",
+    "Frontend BookingPage.js loadRazorpayScript() has no error-toast when the CDN https://checkout.razorpay.com/v1/checkout.js is blocked by network — currently silently fails then shows a generic 'Couldn't load the payment window' toast which is fine, but no retry.",
+    "PaymentVerifyInput accepts empty strings; consider adding constr(min_length=10)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_razorpay_iteration12.py (new — 5 tests, all pass)"
+  ],
+  "success_rate": {
+    "backend": "100% (5/5 pytest — real order, invalid-sig 400, valid-sig confirms, cancel calls real refund, reject calls real refund)",
+    "frontend": "Partial — /book loads, hold-notice visible, Razorpay checkout modal opens with correct order/key/amount in TEST MODE. Full 3DS iframe automation not possible (Razorpay anti-bot); needs manual UAT for end-to-end happy path."
+  },
+  "test_credentials": "Owner: sabnamrajoria@gmail.com / Owner@123. Customer: guest@komorebi.cafe / Guest@123. Login JSON field: access_token. Razorpay test key rzp_test_TXVTSspYgv9kpA (in backend/.env).",
+  "seed_data_creation": "A handful of TEST_RZP reservations were created against guest@komorebi.cafe during pytest runs (states: cancelled / rejected / confirmed / pending_payment) for future bookable slots. No test users created (reused guest@komorebi.cafe as instructed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Razorpay is REAL (not mocked) in TEST MODE. Use dotenv_values('/app/backend/.env')['RAZORPAY_KEY_SECRET'] to load the secret — os.environ won't have it because the .env quotes and container env. Signature = HMAC-SHA256(secret, f'{order_id}|{payment_id}'). To exercise the refund happy path you MUST have a real captured Razorpay payment (drive checkout manually with test card 4111 1111 1111 1111 or use Razorpay's Orders → Test API to capture a payment programmatically). The customer cancel and admin-reject endpoints both hit the REAL Razorpay refund API — proven by backend log line 'Refund failed for <rid>: The id provided does not exist'. My reservations list is at GET /api/reservations/mine (NOT /reservations). Refund UI selector is data-testid='refund-<reservation_id>' in MyReservations.js. hold-notice testid confirmed on BookingPage summary and on the confirmation dialog (' 30 minutes ' bolded copy).",
+  "rca of the issue": "N/A — no functional defects. Only observed gap: refund-failure returns HTTP 502 which the preview ingress may rewrite to an HTML page, hiding the JSON detail. This is a defence-in-depth suggestion, not a bug in the app."
+}
