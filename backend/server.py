@@ -203,6 +203,7 @@ class MenuItemInput(BaseModel):
     price: int
     category: Optional[str] = "Mains"
     image_url: Optional[str] = ""
+    veg_type: Optional[str] = ""  # "veg" | "non_veg" | "egg" | ""
     active: bool = True
 
 class EventInput(BaseModel):
@@ -1043,41 +1044,86 @@ async def delete_menu(mid: str, user: dict = Depends(require_owner)):
 
 @api_router.post("/admin/menu/upload")
 async def upload_menu_file(file: UploadFile = File(...), user: dict = Depends(require_owner)):
-    """Replace the menu from an uploaded CSV or Excel file (columns: name, description, price, category, image_url)."""
+    """Replace the menu from an uploaded CSV or Excel file.
+
+    Recognised headers (case-insensitive, any order): name/dish, category, price,
+    description, image_url, and 'veg / non veg' (Veg / Non veg / Egg). Category is
+    carried forward across blank rows; a row with a blank dish name but a star
+    ingredient is treated as a veg/non-veg variant of the dish above it.
+    """
     import io, csv
     fname = (file.filename or "").lower()
     data = await file.read()
-    rows = []
     if fname.endswith(".csv"):
-        reader = csv.DictReader(io.StringIO(data.decode("utf-8-sig")))
-        rows = [{(k or "").strip().lower(): v for k, v in r.items()} for r in reader]
+        grid = [list(r) for r in csv.reader(io.StringIO(data.decode("utf-8-sig")))]
     elif fname.endswith((".xlsx", ".xls")):
         import openpyxl
         wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-        ws = wb.active
-        it = ws.iter_rows(values_only=True)
-        try:
-            headers = [str(h).strip().lower() if h is not None else "" for h in next(it)]
-        except StopIteration:
-            raise HTTPException(status_code=400, detail="The file is empty")
-        for r in it:
-            rows.append({headers[i]: r[i] for i in range(min(len(headers), len(r)))})
+        grid = [list(r) for r in wb.active.iter_rows(values_only=True)]
     else:
         raise HTTPException(status_code=400, detail="Please upload a .csv or .xlsx file")
 
-    items = []
-    for r in rows:
-        name = str(r.get("name") or "").strip()
-        if not name:
+    header_idx, headers = None, []
+    for idx, row in enumerate(grid):
+        low = [str(c).strip().lower() if c is not None else "" for c in row]
+        if "dish" in low or "name" in low:
+            header_idx, headers = idx, low
+            break
+    if header_idx is None:
+        raise HTTPException(status_code=400, detail="Couldn't find a header row. Include a 'name' (or 'dish') column.")
+
+    def find(*names):
+        for n in names:
+            if n in headers:
+                return headers.index(n)
+        return -1
+
+    name_i = find("dish", "name")
+    cat_i = find("category")
+    price_i = find("price")
+    desc_i = find("description")
+    star_i = find("star ingredient")
+    veg_i = next((i for i, h in enumerate(headers) if h.startswith("veg") or h == "type"), -1)
+
+    def cell(row, i):
+        if i < 0 or i >= len(row) or row[i] is None:
+            return ""
+        return str(row[i]).strip()
+
+    def norm_veg(v):
+        t = v.lower()
+        if not t:
+            return ""
+        if "non" in t:
+            return "non_veg"
+        if t.startswith("egg"):
+            return "egg"
+        if "veg" in t:
+            return "veg"
+        return ""
+
+    items, last_cat, last_name = [], "", ""
+    for row in grid[header_idx + 1:]:
+        if not any(c not in (None, "") for c in row):
+            continue
+        cat = cell(row, cat_i)
+        if cat:
+            last_cat = cat
+        dish = cell(row, name_i)
+        star = cell(row, star_i)
+        if dish:
+            last_name, name = dish, dish
+        elif last_name:
+            name = f"{last_name} ({star})" if star else last_name
+        else:
             continue
         try:
-            price = int(float(r.get("price") or 0))
+            price = int(float(cell(row, price_i) or 0))
         except (ValueError, TypeError):
             price = 0
-        items.append({"name": name, "description": str(r.get("description") or "").strip(),
-                      "price": price, "category": (str(r.get("category") or "Mains").strip() or "Mains"),
-                      "image_url": str(r.get("image_url") or "").strip(), "active": True,
-                      "created_at": now_utc().isoformat()})
+        items.append({"name": name, "description": cell(row, desc_i), "price": price,
+                      "category": last_cat or "Mains", "veg_type": norm_veg(cell(row, veg_i)),
+                      "image_url": "", "active": True, "created_at": now_utc().isoformat()})
     if not items:
         raise HTTPException(status_code=400, detail="No valid rows found. Required column: name (plus price, description, category)")
     await db.menu_items.delete_many({})

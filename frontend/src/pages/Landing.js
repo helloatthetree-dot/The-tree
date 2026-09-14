@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Leaf, Clock, MapPin, ShieldCheck, ArrowRight, Sun } from "lucide-react";
 import api from "../lib/api";
+import { VegBadge } from "../components/VegBadge";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
@@ -147,7 +148,10 @@ export default function Landing() {
                 )}
                 <div className="p-5">
                   <div className="flex justify-between items-start gap-3">
-                    <h3 className="font-display text-2xl text-komorebi-ink leading-tight">{m.name}</h3>
+                    <h3 className="font-display text-2xl text-komorebi-ink leading-tight flex items-center gap-2">
+                      {m.veg_type && <VegBadge type={m.veg_type} size={15} />}
+                      {m.name}
+                    </h3>
                     <span className="text-komorebi-green font-semibold whitespace-nowrap">₹{m.price}</span>
                   </div>
                   {m.category && <span className="text-[11px] uppercase tracking-wide text-komorebi-muted">{m.category}</span>}

@@ -1,6 +1,6 @@
-name,description,price,category,image_url
-Matcha Latte,Stone-ground ceremonial matcha with steamed milk.,320,Drinks,
-Hojicha Affogato,Roasted-tea ice cream drowned in warm espresso.,300,Dessert,
-Garden Grain Bowl,Seasonal greens, quinoa and miso-sesame dressing.,420,Mains,
-Yuzu Cheesecake,Baked cheesecake with a bright yuzu glaze.,280,Dessert,
-Cold Brew,12-hour slow-steeped single-origin coffee.,260,Drinks,
+name,description,price,category,veg,image_url
+Masala Pop,Coca Cola served with masala — a nostalgic 90s drink.,190,Thirst Quenchers,Veg,
+Triple C Chicken,Chicken kebabs with curry-leaf oil and chilly gel.,350,Starters,Non veg,
+Spinach & Corn Quiche,A spinach corn quiche — check the special bake of the day.,380,Starters,Egg,
+Tomatina Soup,Tomato basil soup served with cheese crackers.,420,Soups & Salads,Veg,
+Roselle Bowl,Traditional gongura rice with raitha and onion pakoda.,480,Main Course,Veg,

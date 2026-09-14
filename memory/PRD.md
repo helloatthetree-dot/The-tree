@@ -33,6 +33,14 @@ Mobile-first, premium, calm web app to reserve tables at Café Komorebi. Roles: 
 - P1: Real Razorpay keys + real refund flow; email confirmations (Resend).
 - P2: Cafe timezone (IST) for booking window; reservations date/status indexes; protect seeded accounts from deletion; parallel/real-time table map on admin.
 
+## Implemented (2026-09-08)
+- **Veg / Non-veg / Egg badges** on menu items (FSSAI-style square+dot): green=veg, red=non-veg, amber=egg. Shown on the Menu page and homepage dish cards (`components/VegBadge.jsx`, `veg_type` field on menu items).
+- **Smarter menu upload parser** (`POST /api/admin/menu/upload`): auto-detects the header row (skips title rows), reads `name`/`dish`, `category`, `price`, `description`, `image_url`, and a `veg / non veg` column (Veg/Non veg/Egg). Carries category forward across blank rows; treats a blank-dish row with a star ingredient as a veg/non-veg variant of the dish above ("Popeye's sub (Chicken ham)"). Backward-compatible with the simple template.
+- Imported the owner's real Excel menu (29 items: 19 veg / 7 non-veg / 3 egg) across 5 categories.
+- Fixed Menu cards being invisible until scroll (switched `whileInView` → mount animation); fixed stale "Café Komorebi" label → "The Tree" on Menu page.
+- Updated `public/menu-template.csv` to include a `veg` column.
+- Note: a few dishes imported at ₹0 because those price cells were blank in the source file — owner to fill in.
+
 ## Implemented (2026-09-03)
 - **Razorpay LIVE integration (TEST MODE)** — replaces the previous mock:
   - Booking creates a real Razorpay order (`POST /api/reservations` returns `order_id`/`amount`/`key_id`); frontend opens Razorpay Checkout.
