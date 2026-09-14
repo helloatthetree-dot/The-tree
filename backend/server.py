@@ -10,6 +10,7 @@ import logging
 import jwt
 import bcrypt
 import asyncio
+import re
 import requests
 import razorpay
 from datetime import datetime, timezone, timedelta, date
@@ -182,7 +183,8 @@ class RegisterInput(BaseModel):
     phone: Optional[str] = ""
 
 class LoginInput(BaseModel):
-    email: EmailStr
+    identifier: Optional[str] = None
+    email: Optional[EmailStr] = None
     password: str
 
 class GoogleSessionInput(BaseModel):
@@ -316,7 +318,7 @@ async def get_settings() -> dict:
                 "hero_label": "Now serving", "hero_tagline": "Afternoon light & golden evenings",
                 "gallery_cta_title": "Reserve your window seat", "gallery_cta_button": "Start booking",
                 "hero_headline": "Where sunlight\nfilters through\nthe trees.",
-                "hero_intro": "Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations.",
+                "hero_intro": "Reserve a table at The Tree — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations.",
                 "footer_note": "The Tree · Open Tuesday to Sunday",
                 "contact_heading": "Reach us on WhatsApp",
                 "contact_whatsapp": "919148271005",
@@ -428,6 +430,11 @@ def clean_reservation(r: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Auth endpoints
 # ---------------------------------------------------------------------------
+def normalize_phone(p: str) -> str:
+    digits = re.sub(r"\D", "", p or "")
+    return digits[-10:] if len(digits) > 10 else digits
+
+
 @api_router.post("/auth/register")
 async def register(body: RegisterInput):
     email = body.email.lower()
@@ -435,7 +442,8 @@ async def register(body: RegisterInput):
         raise HTTPException(status_code=400, detail="Email already registered")
     doc = {
         "name": body.name, "email": email, "password_hash": hash_password(body.password),
-        "phone": body.phone or "", "role": "customer", "created_at": now_utc().isoformat(),
+        "phone": body.phone or "", "phone_normalized": normalize_phone(body.phone or ""),
+        "role": "customer", "created_at": now_utc().isoformat(),
     }
     res = await db.users.insert_one(doc)
     uid = str(res.inserted_id)
@@ -444,13 +452,19 @@ async def register(body: RegisterInput):
 
 @api_router.post("/auth/login")
 async def login(body: LoginInput):
-    email = body.email.lower()
-    user = await db.users.find_one({"email": email})
-    if not user or not verify_password(body.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    ident = (body.identifier or (body.email or "")).strip()
+    if not ident:
+        raise HTTPException(status_code=422, detail="Enter your email or phone number")
+    if "@" in ident:
+        user = await db.users.find_one({"email": ident.lower()})
+    else:
+        digits = normalize_phone(ident)
+        user = await db.users.find_one({"phone_normalized": digits}) if digits else None
+    if not user or not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials. Check your email/phone and password.")
     uid = str(user["_id"])
-    token = create_access_token(uid, email, user["role"])
-    return {"access_token": token, "user": {"id": uid, "name": user["name"], "email": email, "role": user["role"], "phone": user.get("phone", ""), "picture": user.get("picture", "")}}
+    token = create_access_token(uid, user["email"], user["role"])
+    return {"access_token": token, "user": {"id": uid, "name": user["name"], "email": user["email"], "role": user["role"], "phone": user.get("phone", ""), "picture": user.get("picture", "")}}
 
 EMERGENT_OAUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
 
@@ -1202,6 +1216,8 @@ async def startup():
     except Exception as e:
         logger.error(f"Storage init failed: {e}")
     await db.users.create_index("email", unique=True)
+    async for u in db.users.find({"phone": {"$nin": ["", None]}, "phone_normalized": {"$exists": False}}):
+        await db.users.update_one({"_id": u["_id"]}, {"$set": {"phone_normalized": normalize_phone(u.get("phone", ""))}})
     await get_settings()
     await _ensure_seed_user("SUPER_ADMIN_EMAIL", "SUPER_ADMIN_PASSWORD", "Café Owner", "super_admin")
     await _ensure_seed_user("ADMIN_EMAIL", "ADMIN_PASSWORD", "Café Manager", "admin")

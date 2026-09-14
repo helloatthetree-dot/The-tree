@@ -33,6 +33,15 @@ Mobile-first, premium, calm web app to reserve tables at Café Komorebi. Roles: 
 - P1: Real Razorpay keys + real refund flow; email confirmations (Resend).
 - P2: Cafe timezone (IST) for booking window; reservations date/status indexes; protect seeded accounts from deletion; parallel/real-time table map on admin.
 
+## Implemented (2026-09-14)
+- **Phone OR email login**: `POST /api/auth/login` now takes `{identifier, password}` and matches by email or normalized phone (last 10 digits; country code/spaces ignored). Register stores `phone_normalized`; existing users backfilled at startup. Login page shows an "Email or phone" field.
+- **Dynamic fee/refund**: booking page fee-info, policy-accept checkbox, cancellation note and summary now read `fee_per_person`/`refund_percent` from settings (no hardcoded ₹300/50%).
+- **Homepage "Our tables"** section (id=tables): indoor/outdoor zone cards listing table names + seats, no photos.
+- **Homepage Past vs Upcoming events**: events split by date — upcoming (id=events) and a new grayscale "Past events" section (id=past-events).
+- **Booking pass**: confirmation dialog prompts to screenshot + a "Download booking pass" button (canvas PNG, no deps).
+- Brand cleanup: AuthPage + Menu page + hero intro now say "The Tree".
+- Tested iteration_13: 9/9 backend + all frontend flows pass, no issues. (Actual PNG download click not automatable due to Razorpay checkout.)
+
 ## Implemented (2026-09-08)
 - **Veg / Non-veg / Egg badges** on menu items (FSSAI-style square+dot): green=veg, red=non-veg, amber=egg. Shown on the Menu page and homepage dish cards (`components/VegBadge.jsx`, `veg_type` field on menu items).
 - **Smarter menu upload parser** (`POST /api/admin/menu/upload`): auto-detects the header row (skips title rows), reads `name`/`dish`, `category`, `price`, `description`, `image_url`, and a `veg / non veg` column (Veg/Non veg/Egg). Carries category forward across blank rows; treats a blank-dish row with a star ingredient as a veg/non-veg variant of the dish above ("Popeye's sub (Chicken ham)"). Backward-compatible with the simple template.

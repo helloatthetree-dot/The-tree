@@ -10,7 +10,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "../components/ui/dialog";
-import { Loader2, Minus, Plus, CheckCircle2, PartyPopper, Clock, ListPlus } from "lucide-react";
+import { Loader2, Minus, Plus, CheckCircle2, PartyPopper, Clock, ListPlus, Camera, Download } from "lucide-react";
 
 const OCCASIONS = ["None", "Birthday", "Anniversary", "Date Night", "Family Gathering", "Business Meeting", "Celebration", "Other"];
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -60,8 +60,15 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [cfg, setCfg] = useState({ fee_per_person: 300, refund_percent: 50 });
 
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  useEffect(() => {
+    api.get("/settings/public")
+      .then((r) => setCfg({ fee_per_person: r.data.fee_per_person ?? 300, refund_percent: r.data.refund_percent ?? 50 }))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!selectedDate) return;
@@ -155,7 +162,42 @@ export default function BookingPage() {
     }
   };
 
-  const amount = 300 * people;
+  const amount = cfg.fee_per_person * people;
+
+  const downloadPass = () => {
+    const c = confirmation;
+    if (!c) return;
+    const canvas = document.createElement("canvas");
+    const W = 720, H = 470;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#f7f4ee"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#5c6b4c"; ctx.fillRect(0, 0, W, 96);
+    ctx.fillStyle = "#ffffff"; ctx.font = "bold 36px Georgia"; ctx.fillText("The Tree", 40, 56);
+    ctx.font = "16px Georgia"; ctx.fillText("Reservation pass", 40, 80);
+    ctx.fillStyle = "#2c2a28"; ctx.font = "bold 26px Georgia";
+    ctx.fillText(c.needs_approval ? "Awaiting approval" : "Table reserved", 40, 148);
+    const rows = [
+      ["Name", c.booking_name || ""],
+      ["Date", `${c.date}  ·  ${fmt12(c.time)}`],
+      ["Guests", String(c.people)],
+      ["Table", c.table_name || (c.needs_approval ? "To be assigned" : "—")],
+      ["Occasion", c.special_occasion && c.special_occasion !== "None" ? c.special_occasion : "—"],
+      ["Paid", `Rs ${c.amount}`],
+    ];
+    let y = 196;
+    rows.forEach(([k, v]) => {
+      ctx.font = "16px Georgia"; ctx.fillStyle = "#8a8880"; ctx.fillText(k, 40, y);
+      ctx.font = "18px Georgia"; ctx.fillStyle = "#2c2a28"; ctx.fillText(v, 220, y);
+      y += 38;
+    });
+    ctx.fillStyle = "#b3391f"; ctx.font = "15px Georgia";
+    ctx.fillText("Please show this at arrival. Table held 30 min past your time.", 40, H - 28);
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `TheTree-booking-${c.date}.png`;
+    a.click();
+  };
 
   return (
     <div className="komorebi-grain min-h-[calc(100vh-4rem)]">
@@ -184,7 +226,7 @@ export default function BookingPage() {
                 )}
               </div>
               <p data-testid="fee-info" className="mt-4 rounded-xl bg-komorebi-green/8 border border-komorebi-green/20 px-4 py-3 text-sm text-komorebi-ink2">
-                <span className="font-semibold text-komorebi-green">Reservation fee ₹300 per guest</span> — collected now to confirm your table. 50% refundable (see cancellation policy).
+                <span className="font-semibold text-komorebi-green">Reservation fee ₹{cfg.fee_per_person} per guest</span> — collected now to confirm your table. {cfg.refund_percent}% refundable (see cancellation policy).
               </p>
             </div>
 
@@ -213,7 +255,7 @@ export default function BookingPage() {
                 })}
               </div>
               <p data-testid="cancellation-policy" className="mt-3 text-xs text-komorebi-muted">
-                Cancellations 24+ hours before your reservation receive a 50% refund. Same-day cancellations are non-refundable. Closed on Mondays.
+                Cancellations 24+ hours before your reservation receive a {cfg.refund_percent}% refund. Same-day cancellations are non-refundable. Closed on Mondays.
               </p>
             </div>
 
@@ -328,7 +370,7 @@ export default function BookingPage() {
                   <Link to="/policies" target="_blank" data-testid="policies-link" className="text-komorebi-green font-semibold underline underline-offset-2 hover:text-komorebi-greenDark">
                     reservation policies
                   </Link>
-                  {" "}— including the ₹300/guest fee and 50% refund on cancellation.
+                  {" "}— including the ₹{cfg.fee_per_person}/guest fee and {cfg.refund_percent}% refund on cancellation.
                 </span>
               </label>
             </div>
@@ -347,7 +389,7 @@ export default function BookingPage() {
               </div>
               <div className="border-t border-white/15 my-4" />
               <div className="flex justify-between items-end">
-                <span className="text-white/70 text-sm">Reservation fee (₹300 × {people})</span>
+                <span className="text-white/70 text-sm">Reservation fee (₹{cfg.fee_per_person} × {people})</span>
                 <span className="font-display text-3xl">₹{amount}</span>
               </div>
               <button
@@ -399,6 +441,14 @@ export default function BookingPage() {
                   <Clock size={14} strokeWidth={1.5} className="mt-0.5 shrink-0 text-komorebi-clay" />
                   Please arrive on time — your table will be held for <span className="font-semibold">30 minutes</span> after your reserved time.
                 </p>
+                <div data-testid="screenshot-hint" className="mt-4 rounded-xl bg-komorebi-green/8 border border-komorebi-green/20 px-3 py-2.5 text-left text-xs text-komorebi-ink2 flex items-start gap-1.5">
+                  <Camera size={14} strokeWidth={1.5} className="mt-0.5 shrink-0 text-komorebi-green" />
+                  Take a screenshot of this confirmation — or download your booking pass below — to show when you arrive.
+                </div>
+                <button
+                  data-testid="download-pass-btn" onClick={downloadPass}
+                  className="mt-3 w-full rounded-full hairline bg-white text-komorebi-ink py-3 font-medium flex items-center justify-center gap-2 hover:bg-komorebi-bg transition-colors"
+                ><Download size={17} strokeWidth={1.5} /> Download booking pass</button>
                 <button
                   data-testid="confirmation-done" onClick={() => { setConfirmation(null); navigate("/reservations"); }}
                   className="mt-6 w-full rounded-full bg-komorebi-green text-white py-3 font-medium hover:bg-komorebi-greenDark transition-colors"

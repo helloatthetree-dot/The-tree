@@ -51,6 +51,7 @@ export default function Landing() {
   const [gallery, setGallery] = useState([]);
   const [menu, setMenu] = useState({ enabled: true, items: [] });
   const [events, setEvents] = useState([]);
+  const [tables, setTables] = useState([]);
   const [site, setSite] = useState({ hero_label: "Now serving", hero_tagline: "Afternoon light & golden evenings" });
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function Landing() {
     api.get("/gallery").then((r) => setGallery(r.data)).catch(() => {});
     api.get("/menu").then((r) => setMenu(r.data)).catch(() => {});
     api.get("/events").then((r) => setEvents(r.data)).catch(() => {});
+    api.get("/tables/public").then((r) => setTables(r.data)).catch(() => {});
     api.get("/settings/public").then((r) => setSite(r.data)).catch(() => {});
   }, []);
 
@@ -65,6 +67,11 @@ export default function Landing() {
     const g = gallery.find((x) => x.slot === slot);
     return g ? `${BACKEND}${g.url}` : fallback;
   };
+
+  const zones = [...new Set(tables.map((t) => t.zone))];
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = events.filter((e) => e.date >= today);
+  const past = events.filter((e) => e.date < today).reverse();
 
   return (
     <div className="komorebi-grain">
@@ -79,7 +86,7 @@ export default function Landing() {
             {site.hero_headline || "Where sunlight\nfilters through\nthe trees."}
           </h1>
           <p className="mt-6 text-base md:text-lg text-komorebi-ink2 max-w-md leading-relaxed">
-            {site.hero_intro || "Reserve a table at Café Komorebi — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations."}
+            {site.hero_intro || "Reserve a table at The Tree — a calm, light-filled retreat for warm afternoons, golden evenings and quiet celebrations."}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link
@@ -121,6 +128,40 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      {/* Our tables (no photos) */}
+      {tables.length > 0 && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 py-10" id="tables">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Seating</p>
+            <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Our tables</h2>
+            <p className="mt-3 text-komorebi-ink2 max-w-xl leading-relaxed">Indoor nooks and open-air garden seating — here's what you can reserve.</p>
+          </div>
+          <div className="mt-8 grid md:grid-cols-2 gap-6">
+            {zones.map((z) => {
+              const zt = tables.filter((t) => t.zone === z);
+              const maxCap = Math.max(...zt.map((t) => t.capacity));
+              return (
+                <div key={z} data-testid={`tables-zone-${z}`} className="rounded-2xl bg-white hairline p-6 lift">
+                  <div className="flex items-center gap-2 text-komorebi-green">
+                    {z === "outdoor" ? <Sun size={18} strokeWidth={1.5} /> : <Leaf size={18} strokeWidth={1.5} />}
+                    <h3 className="font-display text-2xl text-komorebi-ink capitalize">{z} seating</h3>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {zt.map((t) => (
+                      <div key={t.id} className="rounded-xl bg-komorebi-bg hairline px-4 py-2.5">
+                        <p className="font-medium text-komorebi-ink text-sm">{t.name}</p>
+                        <p className="text-xs text-komorebi-muted">Seats {t.capacity}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-4 text-xs uppercase tracking-wide text-komorebi-muted">{zt.length} tables · up to {maxCap} guests</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Menu highlight */}
       {menu.enabled && menu.items.length > 0 && (
@@ -164,7 +205,7 @@ export default function Landing() {
       )}
 
       {/* Upcoming events */}
-      {events.length > 0 && (
+      {upcoming.length > 0 && (
         <section className="max-w-7xl mx-auto px-5 md:px-8 py-16" id="events">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
@@ -174,11 +215,34 @@ export default function Landing() {
             <Link to="/events" className="text-sm text-komorebi-green underline underline-offset-4 hover:text-komorebi-greenDark">All events</Link>
           </div>
           <div className="mt-8 grid md:grid-cols-3 gap-5">
-            {events.slice(0, 3).map((e, i) => (
+            {upcoming.slice(0, 3).map((e, i) => (
               <motion.div key={e.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (i % 3) * 0.08, duration: 0.6 }} className="rounded-2xl bg-white hairline overflow-hidden lift">
                 {e.image_url ? <img src={e.image_url.startsWith("http") ? e.image_url : `${BACKEND}${e.image_url}`} alt={e.title} className="w-full h-40 object-cover" /> : <div className="w-full h-40 bg-gradient-to-br from-komorebi-clay/15 to-komorebi-green/10 grid place-items-center"><span className="font-display text-2xl text-komorebi-clay/50">Komorebi</span></div>}
                 <div className="p-5">
                   <p className="text-xs uppercase tracking-wide text-komorebi-clay">{e.date}</p>
+                  <h3 className="font-display text-2xl text-komorebi-ink mt-1">{e.title}</h3>
+                  {e.description && <p className="text-sm text-komorebi-ink2 mt-2 leading-relaxed">{e.description}</p>}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Past events */}
+      {past.length > 0 && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 pb-8" id="past-events">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Memories</p>
+            <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Past events</h2>
+            <p className="mt-3 text-komorebi-ink2 max-w-xl leading-relaxed">A look back at gatherings we've hosted under the trees.</p>
+          </div>
+          <div className="mt-8 grid md:grid-cols-3 gap-5">
+            {past.slice(0, 3).map((e, i) => (
+              <motion.div key={e.id} data-testid={`past-event-${e.id}`} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (i % 3) * 0.08, duration: 0.6 }} className="rounded-2xl bg-white hairline overflow-hidden lift">
+                {e.image_url ? <img src={e.image_url.startsWith("http") ? e.image_url : `${BACKEND}${e.image_url}`} alt={e.title} className="w-full h-40 object-cover grayscale" /> : <div className="w-full h-40 bg-gradient-to-br from-komorebi-ink/10 to-komorebi-green/10 grid place-items-center"><span className="font-display text-2xl text-komorebi-ink/30">The Tree</span></div>}
+                <div className="p-5">
+                  <p className="text-xs uppercase tracking-wide text-komorebi-muted">{e.date}</p>
                   <h3 className="font-display text-2xl text-komorebi-ink mt-1">{e.title}</h3>
                   {e.description && <p className="text-sm text-komorebi-ink2 mt-2 leading-relaxed">{e.description}</p>}
                 </div>

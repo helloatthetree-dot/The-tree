@@ -1,0 +1,22 @@
+{
+  "summary": "Iteration 13: verified phone-or-email login (BE + FE), dynamic fee/refund on /book, Our Tables homepage section (no photos), Past vs Upcoming events split with grayscale past images, and booking confirmation dialog markup (download-pass-btn + screenshot-hint). 9/9 backend tests pass; all frontend flows pass. Booking-confirmation download button not exercised end-to-end because Razorpay checkout is not automatable, but markup + data-testids verified in source and rendering logic is deterministic from the confirmation object.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration13_phone_login.py",
+    "/app/test_reports/pytest/iteration13.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BookingPage.js and server.py are getting large (480 and 1241 lines). Consider splitting for maintainability.",
+    "AuthPage login placeholder shows 'you@email.com or 9148271005'; consider a more neutral phone placeholder or brand-consistent example."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration13_phone_login.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Owner sabnamrajoria@gmail.com / Owner@123; Customer guest@komorebi.cafe / Guest@123 (phone 9000012345)",
+  "seed_data_creation": "Created TEST_PAST_UI event and TEST_it13_* user during tests; both cleaned up.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend phone login normalization works for last-10-digits, '+91 90000 12345' with spaces, and register-then-phone-login. Landing #tables has data-testid tables-zone-indoor/outdoor, no img children. #past-events only renders when past events exist; past-event-<id> cards use grayscale(1) filter. Booking dialog has data-testid screenshot-hint + download-pass-btn + confirmation-done (verified in source at BookingPage.js:444-455). Testing the actual PNG download requires completing a Razorpay flow (test card 4111 1111 1111 1111) which the automation environment cannot complete.",
+  "rca of the issue": "N/A — no issues found."
+}

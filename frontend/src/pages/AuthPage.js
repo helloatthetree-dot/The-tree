@@ -10,7 +10,7 @@ export default function AuthPage({ register: isRegister }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState(isRegister ? "register" : "login");
-  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", identifier: "" });
   const [loading, setLoading] = useState(false);
 
   const dest = location.state?.from || "/book";
@@ -29,7 +29,7 @@ export default function AuthPage({ register: isRegister }) {
     try {
       let user;
       if (mode === "register") user = await register(form);
-      else user = await login(form.email, form.password);
+      else user = await login(form.identifier, form.password);
       toast.success(`Welcome, ${user.name.split(" ")[0]}!`);
       if (user.role === "admin" || user.role === "super_admin") navigate("/admin");
       else navigate(dest);
@@ -62,7 +62,7 @@ export default function AuthPage({ register: isRegister }) {
             <span className="grid place-items-center h-10 w-10 rounded-full bg-komorebi-green text-white">
               <Coffee strokeWidth={1.5} size={20} />
             </span>
-            <span className="font-display text-3xl text-komorebi-ink">Komorebi</span>
+            <span className="font-display text-3xl text-komorebi-ink">The Tree</span>
           </div>
           <h1 className="font-display text-4xl text-komorebi-ink">
             {mode === "register" ? "Create your account" : "Welcome back"}
@@ -82,14 +82,25 @@ export default function AuthPage({ register: isRegister }) {
                 />
               </div>
             )}
-            <div>
-              <label className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Email</label>
-              <input
-                data-testid="auth-email" type="email" required value={form.email} onChange={set("email")}
-                className="mt-1.5 w-full rounded-xl bg-white hairline px-4 py-3 outline-none focus:ring-2 focus:ring-komorebi-green"
-                placeholder="you@email.com"
-              />
-            </div>
+            {mode === "login" ? (
+              <div>
+                <label className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Email or phone</label>
+                <input
+                  data-testid="auth-identifier" required value={form.identifier} onChange={set("identifier")}
+                  className="mt-1.5 w-full rounded-xl bg-white hairline px-4 py-3 outline-none focus:ring-2 focus:ring-komorebi-green"
+                  placeholder="you@email.com  or  9148271005"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Email</label>
+                <input
+                  data-testid="auth-email" type="email" required value={form.email} onChange={set("email")}
+                  className="mt-1.5 w-full rounded-xl bg-white hairline px-4 py-3 outline-none focus:ring-2 focus:ring-komorebi-green"
+                  placeholder="you@email.com"
+                />
+              </div>
+            )}
             {mode === "register" && (
               <div>
                 <label className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Phone</label>
@@ -98,6 +109,7 @@ export default function AuthPage({ register: isRegister }) {
                   className="mt-1.5 w-full rounded-xl bg-white hairline px-4 py-3 outline-none focus:ring-2 focus:ring-komorebi-green"
                   placeholder="+91 90000 00000"
                 />
+                <p className="text-xs text-komorebi-muted mt-1">You can use this number to sign in later.</p>
               </div>
             )}
             <div>
@@ -135,7 +147,7 @@ export default function AuthPage({ register: isRegister }) {
           </button>
 
           <p className="mt-6 text-sm text-komorebi-ink2 text-center">
-            {mode === "register" ? "Already have an account?" : "New to Komorebi?"}{" "}
+            {mode === "register" ? "Already have an account?" : "New to The Tree?"}{" "}
             <button
               data-testid="auth-toggle"
               onClick={() => setMode(mode === "register" ? "login" : "register")}
