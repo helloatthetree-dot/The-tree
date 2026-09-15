@@ -447,6 +447,7 @@ function SettingsManager({ settings, onSaved }) {
         contact_phone: f.contact_phone, contact_email: f.contact_email,
         contact_address: f.contact_address, policies_intro: f.policies_intro,
         hours: f.hours, policies: f.policies,
+        tables_label: f.tables_label, tables_heading: f.tables_heading, tables_intro: f.tables_intro,
       });
       onSaved(data); toast.success("Settings saved");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -524,6 +525,24 @@ function SettingsManager({ settings, onSaved }) {
           </div>
         </div>
       </div>
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Tables / seating section</p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-komorebi-muted">Label</label>
+            <input data-testid="setting-tables-label" value={f.tables_label || ""} onChange={(e) => setF({ ...f, tables_label: e.target.value })} className={txtCls} placeholder="Seating" />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">Heading</label>
+            <input data-testid="setting-tables-heading" value={f.tables_heading || ""} onChange={(e) => setF({ ...f, tables_heading: e.target.value })} className={txtCls} placeholder="Our tables" />
+          </div>
+          <div>
+            <label className="text-xs text-komorebi-muted">Intro</label>
+            <textarea data-testid="setting-tables-intro" value={f.tables_intro || ""} onChange={(e) => setF({ ...f, tables_intro: e.target.value })} rows={2} className={txtCls} placeholder="A little map of the space…" />
+          </div>
+        </div>
+      </div>
+
       <div className="mt-6 pt-6 border-t border-komorebi-border">
         <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Footer note</p>
         <input data-testid="setting-footer-note" value={f.footer_note || ""} onChange={(e) => setF({ ...f, footer_note: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none" placeholder="The Tree · Open Tuesday to Sunday" />
@@ -706,7 +725,7 @@ function GalleryManager() {
 
 /* ---------- Events Manager ---------- */
 function EventsManager() {
-  const empty = { title: "", description: "", date: today(), image_url: "", active: true };
+  const empty = { title: "", description: "", date: today(), image_url: "", gallery: [], active: true };
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
@@ -714,6 +733,23 @@ function EventsManager() {
 
   const load = () => api.get("/admin/events").then((r) => setItems(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
+
+  const addGalleryPhoto = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const { data } = await api.post("/admin/upload", fd, { params: { kind: "event" } });
+        setForm((prev) => ({ ...prev, gallery: [...(prev.gallery || []), data.url] }));
+      } catch (err) {
+        toast.error(formatApiError(err.response?.data?.detail) || "Upload failed");
+      }
+    }
+    e.target.value = "";
+  };
+  const removeGalleryPhoto = (i) => setForm((prev) => ({ ...prev, gallery: (prev.gallery || []).filter((_, idx) => idx !== i) }));
 
   const save = async () => {
     try {
@@ -739,7 +775,22 @@ function EventsManager() {
               <input data-testid="event-title" placeholder="Event title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
               <input type="date" data-testid="event-date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none" />
               <textarea data-testid="event-description" placeholder="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full rounded-xl bg-komorebi-bg hairline px-4 py-3 outline-none min-h-[70px]" />
-              <ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} kind="event" label="Event photo" testid="event-image-upload" />
+              <ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} kind="event" label="Cover photo" testid="event-image-upload" />
+              <div>
+                <label className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Photo gallery <span className="normal-case tracking-normal text-komorebi-muted/70">(shown once the event is past)</span></label>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {(form.gallery || []).map((u, i) => (
+                    <div key={i} className="relative">
+                      <img src={resolveImg(u)} alt="" className="h-16 w-16 rounded-xl object-cover hairline" />
+                      <button type="button" onClick={() => removeGalleryPhoto(i)} className="absolute -top-2 -right-2 h-6 w-6 grid place-items-center rounded-full bg-white hairline text-komorebi-danger"><Trash2 size={12} /></button>
+                    </div>
+                  ))}
+                  <label data-testid="event-gallery-upload" className="cursor-pointer h-16 w-16 rounded-xl hairline bg-komorebi-bg grid place-items-center hover:bg-komorebi-bg2 text-komorebi-green">
+                    <Plus size={18} />
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={addGalleryPhoto} />
+                  </label>
+                </div>
+              </div>
               <label className="flex items-center gap-2 text-sm"><Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} /> Visible</label>
             </div>
             <DialogFooter><button data-testid="save-event-btn" onClick={save} className="rounded-full bg-komorebi-green text-white px-6 py-2.5">Save event</button></DialogFooter>
@@ -756,7 +807,7 @@ function EventsManager() {
                 <p className="text-xs text-komorebi-muted truncate">{e.date}{e.description ? ` · ${e.description}` : ""}</p>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={() => { setForm({ title: e.title, description: e.description || "", date: e.date, image_url: e.image_url || "", active: e.active }); setEditing(e.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
+                <button onClick={() => { setForm({ title: e.title, description: e.description || "", date: e.date, image_url: e.image_url || "", gallery: e.gallery || [], active: e.active }); setEditing(e.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
                 <button onClick={() => del(e.id)} className="rounded-full hairline bg-white text-komorebi-danger px-3 py-1.5"><Trash2 size={15} /></button>
               </div>
             </div>

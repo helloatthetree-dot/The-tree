@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend verification of the new Tables MAP redesign, editable tables text (super admin settings round-trip), event photo gallery uploader, and past-events lightbox. All four features work end-to-end. Verified on desktop (1920) and mobile (390) with no horizontal overflow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminDashboard.js is 957 lines - approaching threshold; managers (Events/Menu/Gallery/Users/etc.) should be split into separate files for maintainability.",
+    "Landing.js should also be reviewed for length once new sections have stabilised.",
+    "Event gallery upload uploads files one-by-one via multiple submit events; multi-file input select would need users to pick one image at a time (input has no 'multiple' attr). Consider adding multiple to <input type='file'> for true multi-upload UX (spec calls out 'multi-upload')."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Owner: sabnamrajoria@gmail.com / Owner@123 (from prompt)",
+  "seed_data_creation": "Created a TEST_Gallery_Event with 2 uploaded images to verify gallery persistence; cleaned up (DELETE returned 200). Left 'Harvest Moon Supper' demo untouched.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 requested features validated. Tables map renders premium floor-plan with dashed zones, seat dots, legend '7 tables in total', 'Indoor' (Spicy/Umami/Salty/Tangy => 4 tables · up to 4 guests) and 'Garden · Outdoor' (Smoky/Fruity/Malty => 3 tables · up to 6 guests). No overflow at 1920 nor 390. Settings round-trip PASS: changing tables_label/heading/intro via admin (data-testids setting-tables-label/-heading/-intro + save-settings-btn) persists and homepage #tables reflects changes after reload; restored originals afterwards. Event gallery uploader (event-gallery-upload) inside Owner settings > Upcoming events dialog works: uploaded 2 images -> POST /api/admin/upload returned URLs, GET /api/admin/events showed gallery array of 2. Past-events section shows 'Ganesha' (no gallery) and 'Harvest Moon Supper' with 3-image strip [data-testid='past-event-gallery-<id>']; clicking a thumb opens [data-testid='event-lightbox'] full-screen overlay, clicking overlay closes it. Upcoming events (2026-09-20, 2026-09-27, 2026-10-04) correctly do NOT appear in past section.",
+  "rca of the issue": "N/A - no issues found"
+}

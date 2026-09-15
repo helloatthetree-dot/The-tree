@@ -52,6 +52,7 @@ export default function Landing() {
   const [menu, setMenu] = useState({ enabled: true, items: [] });
   const [events, setEvents] = useState([]);
   const [tables, setTables] = useState([]);
+  const [lightbox, setLightbox] = useState(null);
   const [site, setSite] = useState({ hero_label: "Now serving", hero_tagline: "Afternoon light & golden evenings" });
 
   useEffect(() => {
@@ -129,36 +130,57 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Our tables (no photos) */}
+      {/* Our tables — floor-plan map */}
       {tables.length > 0 && (
-        <section className="max-w-7xl mx-auto px-5 md:px-8 py-10" id="tables">
+        <section className="max-w-7xl mx-auto px-5 md:px-8 py-12" id="tables">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">Seating</p>
-            <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">Our tables</h2>
-            <p className="mt-3 text-komorebi-ink2 max-w-xl leading-relaxed">Indoor nooks and open-air garden seating — here's what you can reserve.</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-komorebi-clay font-semibold">{site.tables_label || "Seating"}</p>
+            <h2 className="font-display text-4xl md:text-5xl mt-3 text-komorebi-ink">{site.tables_heading || "Our tables"}</h2>
+            <p className="mt-3 text-komorebi-ink2 max-w-xl leading-relaxed">{site.tables_intro || "A little map of the space — indoor nooks and open-air garden seating you can reserve."}</p>
           </div>
-          <div className="mt-8 grid md:grid-cols-2 gap-6">
-            {zones.map((z) => {
-              const zt = tables.filter((t) => t.zone === z);
-              const maxCap = Math.max(...zt.map((t) => t.capacity));
-              return (
-                <div key={z} data-testid={`tables-zone-${z}`} className="rounded-2xl bg-white hairline p-6 lift">
-                  <div className="flex items-center gap-2 text-komorebi-green">
-                    {z === "outdoor" ? <Sun size={18} strokeWidth={1.5} /> : <Leaf size={18} strokeWidth={1.5} />}
-                    <h3 className="font-display text-2xl text-komorebi-ink capitalize">{z} seating</h3>
+
+          <div
+            className="mt-8 rounded-[2rem] bg-white hairline p-4 md:p-8 relative overflow-hidden"
+            style={{ backgroundImage: "radial-gradient(rgba(92,107,76,0.10) 1px, transparent 1px)", backgroundSize: "22px 22px" }}
+          >
+            <div className="flex flex-wrap items-center gap-4 mb-6 text-xs text-komorebi-muted">
+              <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-komorebi-green/70 inline-block" /> Indoor</span>
+              <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-komorebi-clay/70 inline-block" /> Garden</span>
+              <span className="ml-auto flex items-center gap-1.5"><MapPin size={13} /> {tables.length} tables in total</span>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {zones.map((z) => {
+                const zt = tables.filter((t) => t.zone === z);
+                const isOut = z === "outdoor";
+                return (
+                  <div
+                    key={z}
+                    data-testid={`tables-zone-${z}`}
+                    className={`relative rounded-2xl border-2 border-dashed p-5 pt-7 ${isOut ? "border-komorebi-clay/30 bg-komorebi-clay/5" : "border-komorebi-green/30 bg-komorebi-green/5"}`}
+                  >
+                    <span className={`absolute -top-3 left-5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white ${isOut ? "bg-komorebi-clay" : "bg-komorebi-green"}`}>
+                      {isOut ? <Sun size={12} strokeWidth={2} /> : <Leaf size={12} strokeWidth={2} />}
+                      {isOut ? "Garden · Outdoor" : "Indoor"}
+                    </span>
+                    <div className="grid grid-cols-2 gap-3">
+                      {zt.map((t) => (
+                        <div key={t.id} className="rounded-xl bg-white hairline p-3 flex flex-col items-center text-center lift">
+                          <div className="flex flex-wrap justify-center gap-1 mb-2 max-w-[64px]">
+                            {Array.from({ length: t.capacity }).map((_, si) => (
+                              <span key={si} className={`h-2 w-2 rounded-full ${isOut ? "bg-komorebi-clay/60" : "bg-komorebi-green/60"}`} />
+                            ))}
+                          </div>
+                          <p className="font-display text-lg text-komorebi-ink leading-none">{t.name}</p>
+                          <p className="text-[11px] text-komorebi-muted mt-1">Seats {t.capacity}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-4 text-[11px] uppercase tracking-wide text-komorebi-muted">{zt.length} tables · up to {Math.max(...zt.map((t) => t.capacity))} guests</p>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {zt.map((t) => (
-                      <div key={t.id} className="rounded-xl bg-komorebi-bg hairline px-4 py-2.5">
-                        <p className="font-medium text-komorebi-ink text-sm">{t.name}</p>
-                        <p className="text-xs text-komorebi-muted">Seats {t.capacity}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-4 text-xs uppercase tracking-wide text-komorebi-muted">{zt.length} tables · up to {maxCap} guests</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
@@ -245,6 +267,18 @@ export default function Landing() {
                   <p className="text-xs uppercase tracking-wide text-komorebi-muted">{e.date}</p>
                   <h3 className="font-display text-2xl text-komorebi-ink mt-1">{e.title}</h3>
                   {e.description && <p className="text-sm text-komorebi-ink2 mt-2 leading-relaxed">{e.description}</p>}
+                  {e.gallery?.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2" data-testid={`past-event-gallery-${e.id}`}>
+                      {e.gallery.slice(0, 5).map((u, gi) => {
+                        const full = u.startsWith("http") ? u : `${BACKEND}${u}`;
+                        return (
+                          <button key={gi} onClick={() => setLightbox(full)} className="h-14 w-14 rounded-lg overflow-hidden hairline">
+                            <img src={full} alt="Event moment" className="h-full w-full object-cover hover:scale-105 transition-transform" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -299,6 +333,12 @@ export default function Landing() {
         </div>
         <p className="mt-8 text-sm text-komorebi-muted">{site.footer_note || "The Tree · Open Tuesday to Sunday"}</p>
       </footer>
+
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} data-testid="event-lightbox" className="fixed inset-0 z-50 bg-black/80 grid place-items-center p-6 cursor-zoom-out">
+          <img src={lightbox} alt="Event photo" className="max-h-[85vh] max-w-full rounded-2xl shadow-2xl" />
+        </div>
+      )}
     </div>
   );
 }

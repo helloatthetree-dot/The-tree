@@ -213,6 +213,7 @@ class EventInput(BaseModel):
     description: Optional[str] = ""
     date: str
     image_url: Optional[str] = ""
+    gallery: Optional[List[str]] = []
     active: bool = True
 
 class ReservationInput(BaseModel):
@@ -271,6 +272,9 @@ class SettingsInput(BaseModel):
     policies_intro: Optional[str] = None
     hours: Optional[List[dict]] = None
     policies: Optional[List[dict]] = None
+    tables_label: Optional[str] = None
+    tables_heading: Optional[str] = None
+    tables_intro: Optional[str] = None
 
 class UserRoleInput(BaseModel):
     role: Literal["customer", "admin", "super_admin"]
@@ -326,6 +330,9 @@ async def get_settings() -> dict:
                 "contact_email": "",
                 "contact_address": "",
                 "policies_intro": "A few gentle guidelines so every guest enjoys the calm of The Tree.",
+                "tables_label": "Seating",
+                "tables_heading": "Our tables",
+                "tables_intro": "A little map of the space — indoor nooks and open-air garden seating you can reserve.",
                 "hours": [
                     {"days": "Saturday & Sunday", "time": "12:30 PM – 10:00 PM", "note": "Continuous seating"},
                     {"days": "Tuesday – Friday", "time": "12:30 – 3:00 PM · 6:00 – 10:00 PM", "note": "Split shifts"},
@@ -524,7 +531,9 @@ async def public_settings():
             "contact_heading": s["contact_heading"], "contact_whatsapp": s["contact_whatsapp"],
             "contact_phone": s["contact_phone"], "contact_email": s["contact_email"],
             "contact_address": s["contact_address"], "policies_intro": s["policies_intro"],
-            "hours": s["hours"], "policies": s["policies"]}
+            "hours": s["hours"], "policies": s["policies"],
+            "tables_label": s["tables_label"], "tables_heading": s["tables_heading"],
+            "tables_intro": s["tables_intro"]}
 
 @api_router.get("/booking-window")
 async def booking_window():

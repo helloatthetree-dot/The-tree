@@ -33,6 +33,12 @@ Mobile-first, premium, calm web app to reserve tables at Café Komorebi. Roles: 
 - P1: Real Razorpay keys + real refund flow; email confirmations (Resend).
 - P2: Cafe timezone (IST) for booking window; reservations date/status indexes; protect seeded accounts from deletion; parallel/real-time table map on admin.
 
+## Implemented (2026-09-14, part 2)
+- **Tables "map" redesign**: homepage `#tables` is now a premium floor-plan — a single dotted-background container with a legend and two dashed zone regions ("Indoor" green, "Garden · Outdoor" clay), each table shown as a pod with seat dots + name + seats. No photos.
+- **Editable tables text (super admin)**: `tables_label`, `tables_heading`, `tables_intro` added to settings + Owner Dashboard SettingsManager; consumed on the homepage.
+- **Event photo galleries**: events gained a `gallery: [str]`; Owner event dialog has a multi-file photo uploader (with remove); past-dated events show a thumbnail strip in the "Past events" memories section with a full-screen lightbox.
+- Tested iteration_14: all 4 features 100% (desktop + mobile, no overflow), no issues.
+
 ## Implemented (2026-09-14)
 - **Phone OR email login**: `POST /api/auth/login` now takes `{identifier, password}` and matches by email or normalized phone (last 10 digits; country code/spaces ignored). Register stores `phone_normalized`; existing users backfilled at startup. Login page shows an "Email or phone" field.
 - **Dynamic fee/refund**: booking page fee-info, policy-accept checkbox, cancellation note and summary now read `fee_per_person`/`refund_percent` from settings (no hardcoded ₹300/50%).
