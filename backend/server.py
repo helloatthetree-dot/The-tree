@@ -276,6 +276,9 @@ class SettingsInput(BaseModel):
     tables_label: Optional[str] = None
     tables_heading: Optional[str] = None
     tables_intro: Optional[str] = None
+    hero_seating_note: Optional[str] = None
+    hero_hours_note: Optional[str] = None
+    home_dishes: Optional[List[dict]] = None
 
 class UserRoleInput(BaseModel):
     role: Literal["customer", "admin", "super_admin"]
@@ -334,6 +337,9 @@ async def get_settings() -> dict:
                 "tables_label": "Seating",
                 "tables_heading": "Our tables",
                 "tables_intro": "A little map of the space — indoor nooks and open-air garden seating you can reserve.",
+                "hero_seating_note": "Indoor & garden seating",
+                "hero_hours_note": "Open Tue–Sun",
+                "home_dishes": [],
                 "hours": [
                     {"days": "Saturday & Sunday", "time": "12:30 PM – 10:00 PM", "note": "Continuous seating"},
                     {"days": "Tuesday – Friday", "time": "12:30 – 3:00 PM · 6:00 – 10:00 PM", "note": "Split shifts"},
@@ -534,7 +540,8 @@ async def public_settings():
             "contact_address": s["contact_address"], "policies_intro": s["policies_intro"],
             "hours": s["hours"], "policies": s["policies"],
             "tables_label": s["tables_label"], "tables_heading": s["tables_heading"],
-            "tables_intro": s["tables_intro"]}
+            "tables_intro": s["tables_intro"], "hero_seating_note": s["hero_seating_note"],
+            "hero_hours_note": s["hero_hours_note"], "home_dishes": s["home_dishes"]}
 
 @api_router.get("/booking-window")
 async def booking_window():

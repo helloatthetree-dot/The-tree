@@ -448,6 +448,8 @@ function SettingsManager({ settings, onSaved }) {
         contact_address: f.contact_address, policies_intro: f.policies_intro,
         hours: f.hours, policies: f.policies,
         tables_label: f.tables_label, tables_heading: f.tables_heading, tables_intro: f.tables_intro,
+        hero_seating_note: f.hero_seating_note, hero_hours_note: f.hero_hours_note,
+        home_dishes: (f.home_dishes || []).map((d) => ({ ...d, price: Number(d.price) || 0 })),
       });
       onSaved(data); toast.success("Settings saved");
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
@@ -468,6 +470,9 @@ function SettingsManager({ settings, onSaved }) {
   };
   const addItem = (key, blank) => setF({ ...f, [key]: [...(f[key] || []), blank] });
   const removeItem = (key, idx) => setF({ ...f, [key]: (f[key] || []).filter((_, i) => i !== idx) });
+  const updateDish = (i, k, v) => { const arr = [...(f.home_dishes || [])]; arr[i] = { ...arr[i], [k]: v }; setF({ ...f, home_dishes: arr }); };
+  const addDish = () => setF({ ...f, home_dishes: [...(f.home_dishes || []), { image_url: "", name: "", price: "", description: "" }] });
+  const removeDish = (i) => setF({ ...f, home_dishes: (f.home_dishes || []).filter((_, idx) => idx !== i) });
   const txtCls = "mt-1 w-full rounded-xl bg-komorebi-bg hairline px-4 py-2.5 outline-none";
   return (
     <div className="rounded-2xl bg-white hairline p-6">
@@ -525,6 +530,36 @@ function SettingsManager({ settings, onSaved }) {
           </div>
         </div>
       </div>
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Hero highlights (two small tags under the intro)</p>
+        <div className="grid md:grid-cols-2 gap-3">
+          <input data-testid="setting-hero-seating" value={f.hero_seating_note || ""} onChange={(e) => setF({ ...f, hero_seating_note: e.target.value })} className={txtCls} placeholder="Indoor & garden seating" />
+          <input data-testid="setting-hero-hours" value={f.hero_hours_note || ""} onChange={(e) => setF({ ...f, hero_hours_note: e.target.value })} className={txtCls} placeholder="Open Tue–Sun" />
+        </div>
+      </div>
+
+      <div className="mt-6 pt-6 border-t border-komorebi-border">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted">Homepage dishes (3 cards)</p>
+          {(f.home_dishes || []).length < 3 && <button type="button" data-testid="add-home-dish-btn" onClick={addDish} className="text-xs text-komorebi-green underline">+ Add card</button>}
+        </div>
+        <p className="text-xs text-komorebi-muted mb-3">Manually curate the 3 cards shown on the homepage. Leave empty to auto-show featured menu items.</p>
+        <div className="space-y-3">
+          {(f.home_dishes || []).map((d, i) => (
+            <div key={i} className="rounded-xl bg-komorebi-bg/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-komorebi-ink">Card {i + 1}</span>
+                <button type="button" data-testid={`remove-home-dish-${i}`} onClick={() => removeDish(i)} className="text-komorebi-clay text-xs">Remove</button>
+              </div>
+              <ImageUpload value={d.image_url} onChange={(url) => updateDish(i, "image_url", url)} kind="menu" label="Dish photo" testid={`home-dish-image-${i}`} />
+              <input data-testid={`home-dish-name-${i}`} value={d.name || ""} onChange={(e) => updateDish(i, "name", e.target.value)} className={txtCls} placeholder="Dish name" />
+              <input data-testid={`home-dish-price-${i}`} type="number" value={d.price ?? ""} onChange={(e) => updateDish(i, "price", e.target.value)} className={txtCls} placeholder="Price ₹" />
+              <textarea data-testid={`home-dish-desc-${i}`} value={d.description || ""} onChange={(e) => updateDish(i, "description", e.target.value)} rows={2} className={txtCls} placeholder="Short description" />
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="mt-6 pt-6 border-t border-komorebi-border">
         <p className="text-xs uppercase tracking-[0.15em] text-komorebi-muted mb-3">Tables / seating section</p>
         <div className="space-y-3">

@@ -71,6 +71,8 @@ export default function Landing() {
 
   const zones = [...new Set(tables.map((t) => t.zone))];
   const featuredMenu = (menu.items.filter((m) => m.featured).length ? menu.items.filter((m) => m.featured) : menu.items).slice(0, 3);
+  const homeDishes = (site.home_dishes || []).filter((d) => d && d.name);
+  const showcase = homeDishes.length ? homeDishes : (menu.enabled ? featuredMenu : []);
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = events.filter((e) => e.date >= today);
   const past = events.filter((e) => e.date < today).reverse();
@@ -104,8 +106,8 @@ export default function Landing() {
             </Link>
           </div>
           <div className="mt-10 flex items-center gap-6 text-sm text-komorebi-muted">
-            <span className="flex items-center gap-2"><Leaf size={16} strokeWidth={1.5} /> Indoor & garden seating</span>
-            <span className="flex items-center gap-2"><Clock size={16} strokeWidth={1.5} /> Open Tue–Sun</span>
+            <span className="flex items-center gap-2"><Leaf size={16} strokeWidth={1.5} /> {site.hero_seating_note || "Indoor & garden seating"}</span>
+            <span className="flex items-center gap-2"><Clock size={16} strokeWidth={1.5} /> {site.hero_hours_note || "Open Tue–Sun"}</span>
           </div>
         </motion.div>
 
@@ -187,7 +189,7 @@ export default function Landing() {
       )}
 
       {/* Menu highlight */}
-      {menu.enabled && featuredMenu.length > 0 && (
+      {showcase.length > 0 && (
         <section className="max-w-7xl mx-auto px-5 md:px-8 py-16">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
@@ -197,9 +199,9 @@ export default function Landing() {
             <Link to="/menu" data-testid="home-menu-link" className="inline-flex items-center gap-2 rounded-full bg-komorebi-green text-white px-6 py-3 text-sm hover:bg-komorebi-greenDark transition-colors">View full menu <ArrowRight size={16} strokeWidth={1.5} /></Link>
           </div>
           <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {featuredMenu.map((m, i) => (
+            {showcase.map((m, i) => (
               <motion.div
-                key={m.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                key={m.id || i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                 transition={{ delay: (i % 3) * 0.08, duration: 0.6 }}
                 className="rounded-2xl bg-white hairline overflow-hidden lift"
               >
