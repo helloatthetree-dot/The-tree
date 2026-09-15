@@ -33,6 +33,9 @@ Mobile-first, premium, calm web app to reserve tables at Café Komorebi. Roles: 
 - P1: Real Razorpay keys + real refund flow; email confirmations (Resend).
 - P2: Cafe timezone (IST) for booking window; reservations date/status indexes; protect seeded accounts from deletion; parallel/real-time table map on admin.
 
+## Implemented (2026-09-15, part 3 — GO LIVE)
+- Razorpay switched to **LIVE keys** (rzp_live_TcCeOn8AwTVI4n). Verified live order creation authenticates. Payments and refunds are now REAL money.
+
 ## Implemented (2026-09-15, part 2 — polish)
 - Fixed booking-confirmation "30 minutes" note layout (was `flex` on a paragraph, splitting the text into columns).
 - Events page (/events) now splits **Upcoming** vs **Past Events** (past shown grayscale with gallery thumbnails) and no longer labels past events as upcoming; also fixed subtitle "Café Komorebi" → "The Tree".
