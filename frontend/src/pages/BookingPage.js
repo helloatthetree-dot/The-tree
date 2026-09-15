@@ -437,10 +437,10 @@ export default function BookingPage() {
                   )}
                   <div className="flex justify-between"><span className="text-komorebi-muted">Paid</span><span>₹{confirmation.amount}</span></div>
                 </div>
-                <p className="mt-4 flex items-start gap-1.5 text-left text-xs text-komorebi-ink2 rounded-xl bg-komorebi-clay/10 px-3 py-2.5">
+                <div className="mt-4 flex items-start gap-2 text-left text-xs text-komorebi-ink2 rounded-xl bg-komorebi-clay/10 px-3 py-2.5">
                   <Clock size={14} strokeWidth={1.5} className="mt-0.5 shrink-0 text-komorebi-clay" />
-                  Please arrive on time — your table will be held for <span className="font-semibold">30 minutes</span> after your reserved time.
-                </p>
+                  <span>Please arrive on time — your table will be held for <span className="font-semibold">30 minutes</span> after your reserved time.</span>
+                </div>
                 <div data-testid="screenshot-hint" className="mt-4 rounded-xl bg-komorebi-green/8 border border-komorebi-green/20 px-3 py-2.5 text-left text-xs text-komorebi-ink2 flex items-start gap-1.5">
                   <Camera size={14} strokeWidth={1.5} className="mt-0.5 shrink-0 text-komorebi-green" />
                   Take a screenshot of this confirmation — or download your booking pass below — to show when you arrive.

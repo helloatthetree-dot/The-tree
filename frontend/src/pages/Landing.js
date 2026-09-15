@@ -218,7 +218,6 @@ export default function Landing() {
                     </h3>
                     <span className="text-komorebi-green font-semibold whitespace-nowrap">₹{m.price}</span>
                   </div>
-                  {m.category && <span className="text-[11px] uppercase tracking-wide text-komorebi-muted">{m.category}</span>}
                   {m.description && <p className="text-sm text-komorebi-ink2 mt-2 leading-relaxed">{m.description}</p>}
                 </div>
               </motion.div>

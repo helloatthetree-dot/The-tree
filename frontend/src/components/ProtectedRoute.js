@@ -6,7 +6,7 @@ export default function ProtectedRoute({ children, staff, owner }) {
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center text-komorebi-muted">
-        <div className="animate-pulse font-display text-2xl">Komorebi…</div>
+        <div className="animate-pulse font-display text-2xl">The Tree…</div>
       </div>
     );
   if (!user) return <Navigate to="/login" replace />;

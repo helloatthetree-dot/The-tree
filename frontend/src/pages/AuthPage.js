@@ -45,7 +45,7 @@ export default function AuthPage({ register: isRegister }) {
       <div className="hidden lg:block relative">
         <img
           src="https://images.unsplash.com/photo-1608060146923-7b8ab13e22bb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxqYXBhbmVzZSUyMHplbiUyMGNhZmUlMjBhcmNoaXRlY3R1cmV8ZW58MHx8fHwxNzg1MTI1NjA3fDA&ixlib=rb-4.1.0&q=85"
-          alt="Café Komorebi"
+          alt="The Tree"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-komorebi-ink/40" />
