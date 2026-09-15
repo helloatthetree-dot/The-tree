@@ -206,6 +206,7 @@ class MenuItemInput(BaseModel):
     category: Optional[str] = "Mains"
     image_url: Optional[str] = ""
     veg_type: Optional[str] = ""  # "veg" | "non_veg" | "egg" | ""
+    featured: Optional[bool] = False
     active: bool = True
 
 class EventInput(BaseModel):

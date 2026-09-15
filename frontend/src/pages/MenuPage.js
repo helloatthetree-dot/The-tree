@@ -31,7 +31,7 @@ export default function MenuPage() {
         ) : (
           cats.map((cat) => (
             <section key={cat} className="mt-12">
-              <h2 className="font-display text-3xl text-komorebi-green border-b border-komorebi-border pb-3">{cat}</h2>
+              <h2 className="font-display text-2xl md:text-3xl text-white bg-komorebi-green rounded-xl px-5 py-3 inline-block shadow-sm">{cat}</h2>
               <div className="mt-6 grid md:grid-cols-2 gap-6">
                 {data.items.filter((m) => (m.category || "Other") === cat).map((m, i) => (
                   <motion.div key={m.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: (i % 2) * 0.06 }} className="flex gap-4 items-start">

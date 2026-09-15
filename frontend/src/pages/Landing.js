@@ -70,6 +70,7 @@ export default function Landing() {
   };
 
   const zones = [...new Set(tables.map((t) => t.zone))];
+  const featuredMenu = (menu.items.filter((m) => m.featured).length ? menu.items.filter((m) => m.featured) : menu.items).slice(0, 3);
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = events.filter((e) => e.date >= today);
   const past = events.filter((e) => e.date < today).reverse();
@@ -186,7 +187,7 @@ export default function Landing() {
       )}
 
       {/* Menu highlight */}
-      {menu.enabled && menu.items.length > 0 && (
+      {menu.enabled && featuredMenu.length > 0 && (
         <section className="max-w-7xl mx-auto px-5 md:px-8 py-16">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
@@ -196,7 +197,7 @@ export default function Landing() {
             <Link to="/menu" data-testid="home-menu-link" className="inline-flex items-center gap-2 rounded-full bg-komorebi-green text-white px-6 py-3 text-sm hover:bg-komorebi-greenDark transition-colors">View full menu <ArrowRight size={16} strokeWidth={1.5} /></Link>
           </div>
           <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {menu.items.slice(0, 3).map((m, i) => (
+            {featuredMenu.map((m, i) => (
               <motion.div
                 key={m.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                 transition={{ delay: (i % 3) * 0.08, duration: 0.6 }}

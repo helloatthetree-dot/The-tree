@@ -33,6 +33,14 @@ Mobile-first, premium, calm web app to reserve tables at Café Komorebi. Roles: 
 - P1: Real Razorpay keys + real refund flow; email confirmations (Resend).
 - P2: Cafe timezone (IST) for booking window; reservations date/status indexes; protect seeded accounts from deletion; parallel/real-time table map on admin.
 
+## Implemented (2026-09-15)
+- **Fixed refund bug**: unpaid ("Payment pending") bookings now show "₹X fee · not paid" and cancel with a "nothing to refund — it will simply be released" dialog + ₹0 (backend already refunded 0; the frontend was hardcoding 50%). Paid bookings still promise the configured refund %.
+- **Featured homepage dishes**: menu items have a `featured` flag; Owner Dashboard Menu has a "Show on homepage (up to 3)" toggle + per-dish photo upload; homepage shows featured dishes (falls back to first 3).
+- **Menu category headings** restyled as filled green highlight bands.
+- **Slightly larger site font**: root `html { font-size: 17px }`.
+- **Razorpay keys updated** to rzp_test_TcC8ye2twizUpg (test mode) — order creation + signature verify confirmed.
+- Tested iteration_15: backend 2/2 + all frontend flows pass, no issues.
+
 ## Implemented (2026-09-14, part 2)
 - **Tables "map" redesign**: homepage `#tables` is now a premium floor-plan — a single dotted-background container with a legend and two dashed zone regions ("Indoor" green, "Garden · Outdoor" clay), each table shown as a pod with seat dots + name + seats. No photos.
 - **Editable tables text (super admin)**: `tables_label`, `tables_heading`, `tables_intro` added to settings + Owner Dashboard SettingsManager; consumed on the homepage.

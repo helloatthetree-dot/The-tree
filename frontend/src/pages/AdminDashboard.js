@@ -819,7 +819,7 @@ function EventsManager() {
 
 /* ---------- Menu Manager ---------- */
 function MenuManager() {
-  const empty = { name: "", description: "", price: 300, category: "Mains", image_url: "", active: true };
+  const empty = { name: "", description: "", price: 300, category: "Mains", image_url: "", featured: false, active: true };
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
@@ -862,6 +862,7 @@ function MenuManager() {
                 </Select>
               </div>
               <ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} kind="menu" label="Dish photo" testid="menu-image-upload" />
+              <label className="flex items-center gap-2 text-sm"><Switch data-testid="menu-featured" checked={form.featured} onCheckedChange={(v) => setForm({ ...form, featured: v })} /> Show on homepage (up to 3)</label>
               <label className="flex items-center gap-2 text-sm"><Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} /> Visible</label>
             </div>
             <DialogFooter><button data-testid="save-menu-btn" onClick={save} className="rounded-full bg-komorebi-green text-white px-6 py-2.5">Save item</button></DialogFooter>
@@ -893,7 +894,7 @@ function MenuManager() {
                 <p className="text-xs text-komorebi-muted truncate">{m.category}{m.description ? ` · ${m.description}` : ""}</p>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={() => { setForm({ name: m.name, description: m.description || "", price: m.price, category: m.category || "Mains", image_url: m.image_url || "", active: m.active }); setEditing(m.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
+                <button onClick={() => { setForm({ name: m.name, description: m.description || "", price: m.price, category: m.category || "Mains", image_url: m.image_url || "", featured: m.featured || false, active: m.active }); setEditing(m.id); setOpen(true); }} className="rounded-full hairline bg-white px-3 py-1.5 text-sm">Edit</button>
                 <button onClick={() => del(m.id)} className="rounded-full hairline bg-white text-komorebi-danger px-3 py-1.5"><Trash2 size={15} /></button>
               </div>
             </div>

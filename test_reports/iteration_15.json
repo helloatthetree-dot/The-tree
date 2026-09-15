@@ -1,0 +1,20 @@
+{
+  "summary": "Verified iteration-15 fixes end-to-end: (1) unpaid 'Payment pending' cancel dialog no longer promises refund; (2) homepage 3 menu cards are driven by 'Show on homepage' featured toggle with dish photo upload; (3) menu category headings render as filled green bands with white text; (4) root html font-size = 17px on desktop and mobile with no overflow; (5) Razorpay new test key rzp_test_TcC8ye2twizUpg is returned for reservation orders and backend unpaid-cancel returns refund_amount=0. Backend pytest 2/2 pass. Frontend visual and dialog behavior verified via Playwright.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_review_iter15.py", "/app/test_reports/pytest/iter15.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminDashboard.js is >950 lines and continues to grow - previous iterations already flagged; MenuManager/EventManager/etc should be extracted to separate files.",
+    "Landing.js: 'featuredMenu' fallback to first 3 when none marked featured is a nice-to-have but relies on order of insertion (created_at asc) - fine, but consider adding a display_order field for owner control.",
+    "MyReservations dialog copy for unpaid uses '—' em-dash; screen reader/i18n friendly, no issue."
+  ],
+  "updated_files": ["/app/backend/tests/test_review_iter15.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Owner: sabnamrajoria@gmail.com / Owner@123 ; Customer: guest@komorebi.cafe / Guest@123",
+  "seed_data_creation": "Created 1 unpaid reservation (rid 6aa8d70d5da3f60345869deb) via API for guest — cancelled through UI as part of test; created 2 TEST_Feat_* menu items + noticed a leftover TEST_Featured_adf881 from pytest run; all TEST_* menu items deleted at end.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 5 items in review request pass. UI dialog for unpaid booking now reads: 'This booking hasn\\'t been paid yet, so there\\'s nothing to refund — it will simply be released.' with a red 'Cancel booking' button (not 'Cancel & refund'). Row shows '₹<amount> fee · not paid'. Toast after confirm: 'Reservation cancelled.' (no refund amount). For a paid confirmed booking, code path still shows '<pct>% refund (₹X) of your ₹Y' — logic verified in MyReservations.js line 134-141. Featured menu round-trip: POST /api/admin/menu with featured=true persists; GET /api/menu returns items with featured boolean; Landing.js shows featured items (first 3) on homepage; fallback to first 3 items when none featured. My reservations route is /reservations (NOT /my). Razorpay key rzp_test_TcC8ye2twizUpg confirmed live via POST /api/reservations. Font 17px on both 1920 and 390 with no horizontal overflow.",
+  "rca of the issue": "Bug was caused by MyReservations dialog previously always showing a % refund promise regardless of payment_id. Fix: dialog & row now branch on `paid = !!r.payment_id`; when unpaid the copy is 'nothing to refund' and confirm label is 'Cancel booking'. Backend /reservations/{id}/cancel already only refunds when payment_id is present, so refund_amount=0 for unpaid — verified."
+}

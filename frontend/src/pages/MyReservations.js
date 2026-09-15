@@ -31,6 +31,7 @@ export default function MyReservations() {
   const [rows, setRows] = useState([]);
   const [waitlist, setWaitlist] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refundPct, setRefundPct] = useState(50);
 
   const load = () => {
     Promise.all([api.get("/reservations/mine"), api.get("/waitlist/mine")])
@@ -38,11 +39,20 @@ export default function MyReservations() {
       .finally(() => setLoading(false));
   };
   useEffect(load, []);
+  useEffect(() => {
+    api.get("/settings/public").then((r) => setRefundPct(r.data.refund_percent ?? 50)).catch(() => {});
+  }, []);
 
   const cancel = async (id) => {
     try {
       const { data } = await api.post(`/reservations/${id}/cancel`);
-      toast.success(`Cancelled. ${data.refund_amount ? `₹${data.refund_amount} refunded (50%).` : ""}`);
+      if (data.refund_amount > 0) {
+        toast.success(data.refund_status === "pending"
+          ? `Cancelled. ₹${data.refund_amount} refund is being processed.`
+          : `Cancelled. ₹${data.refund_amount} refunded.`);
+      } else {
+        toast.success("Reservation cancelled.");
+      }
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail));
@@ -79,6 +89,8 @@ export default function MyReservations() {
             {rows.map((r, i) => {
               const st = STATUS[r.status] || STATUS.completed;
               const canCancel = ["confirmed", "pending_approval", "pending_payment"].includes(r.status);
+              const paid = !!r.payment_id;
+              const expectedRefund = paid ? Math.round(r.amount * refundPct / 100) : 0;
               return (
                 <motion.div
                   key={r.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -99,7 +111,7 @@ export default function MyReservations() {
                       <span className="flex items-center gap-1.5"><Clock size={15} strokeWidth={1.5} /> {r.date} · {fmt12(r.time)}</span>
                       <span className="flex items-center gap-1.5"><Users size={15} strokeWidth={1.5} /> {r.people} guests</span>
                       {r.table_name && <span className="flex items-center gap-1.5"><MapPin size={15} strokeWidth={1.5} /> {r.table_name}</span>}
-                      <span>₹{r.amount} paid</span>
+                      <span>{paid ? `₹${r.amount} paid` : `₹${r.amount} fee · not paid`}</span>
                     </div>
                     {(r.status === "cancelled" || r.status === "rejected") && r.refund_amount > 0 && (
                       <p data-testid={`refund-${r.id}`} className={`text-xs mt-2 ${r.refund_status === "pending" ? "text-komorebi-clay" : "text-komorebi-green"}`}>
@@ -119,12 +131,14 @@ export default function MyReservations() {
                         <AlertDialogHeader>
                           <AlertDialogTitle className="font-display text-2xl">Cancel this reservation?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            You'll receive a 50% refund (₹{Math.round(r.amount * 0.5)}) of your ₹{r.amount} reservation fee.
+                            {paid
+                              ? `You'll receive a ${refundPct}% refund (₹${expectedRefund}) of your ₹${r.amount} reservation fee.`
+                              : "This booking hasn't been paid yet, so there's nothing to refund — it will simply be released."}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel className="rounded-full">Keep it</AlertDialogCancel>
-                          <AlertDialogAction data-testid={`confirm-cancel-${r.id}`} onClick={() => cancel(r.id)} className="rounded-full bg-komorebi-danger hover:bg-komorebi-danger/90">Cancel & refund</AlertDialogAction>
+                          <AlertDialogAction data-testid={`confirm-cancel-${r.id}`} onClick={() => cancel(r.id)} className="rounded-full bg-komorebi-danger hover:bg-komorebi-danger/90">{paid ? "Cancel & refund" : "Cancel booking"}</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>

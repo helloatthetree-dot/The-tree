@@ -22,6 +22,10 @@ body,
   max-width: 100%;
 }
 
+html {
+  font-size: 17px;
+}
+
 body {
   margin: 0;
   width: 100%;
